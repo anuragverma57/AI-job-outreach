@@ -24,7 +24,7 @@ func main() {
 		AppName: "API Gateway",
 	})
 
-	router.Setup(app, db)
+	router.Setup(app, db, cfg)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("API Gateway starting on %s", addr)

@@ -41,7 +41,18 @@ migrate-force:
 	migrate -path $(MIGRATIONS_DIR) -database $(MIGRATE_URL) force $$version
 
 # --- API Gateway ---
-.PHONY: run-api
+.PHONY: run-api build-api dev
 
 run-api:
 	cd api-gateway && GOTOOLCHAIN=local go run cmd/server/main.go
+
+build-api:
+	cd api-gateway && GOTOOLCHAIN=local go build -o bin/server cmd/server/main.go
+
+# Full dev startup: Docker + migrations + API server
+dev: up
+	@echo "Waiting for Postgres to be ready..."
+	@sleep 2
+	@$(MAKE) migrate-up
+	@echo "Starting API Gateway..."
+	@$(MAKE) run-api
