@@ -7,12 +7,14 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 ## P0 — Core MVP Features
 
 ### 1. User Authentication
+
 - User registration with email and password
 - Login with JWT token issuance
 - Token refresh mechanism
 - Protected routes (all features require auth)
 
 ### 2. Resume Management
+
 - Upload resume (PDF format)
 - Parse and extract text from resume
 - Store parsed text for AI analysis
@@ -20,6 +22,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - View and delete uploaded resumes
 
 ### 3. Job Application Management
+
 - Create a new application with:
   - Company name
   - Role / job title
@@ -32,6 +35,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Delete application
 
 ### 4. AI-Powered Email Generation
+
 - Analyze resume against job description
 - Identify key matching skills, experience, and qualifications
 - Generate a personalized cold email with:
@@ -42,12 +46,14 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Support regeneration with different tone (formal, friendly, concise)
 
 ### 5. Email Review & Editing
+
 - Display generated email for user review
 - Inline editing of subject and body
 - Regenerate email (full or partial)
 - Save edited version as the final draft
 
 ### 6. Email Scheduling
+
 - Schedule email for a specific date and time
 - Schedule with a relative delay ("send in 2 hours")
 - View all scheduled emails
@@ -55,6 +61,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Reschedule a pending email
 
 ### 7. Automated Email Sending
+
 - Background worker consumes scheduled email jobs
 - Send email via SMTP or email API (Resend/SendGrid)
 - Retry failed sends (up to 3 attempts with backoff)
@@ -62,6 +69,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Update application status after successful send
 
 ### 8. Application Status Tracking
+
 - Track application through stages:
   - `draft` → `applied` → `replied` → `interview` → `offer` / `rejected` / `ghosted`
 - Manual status update by user
@@ -69,6 +77,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Filter applications by status
 
 ### 9. Dashboard & Analytics
+
 - Total applications count
 - Breakdown by status (pie/bar chart)
 - Applications over time (line chart)
@@ -81,31 +90,37 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 ## P1 — Post-MVP Enhancements
 
 ### 10. Email Templates
+
 - Save a generated email as a reusable template
 - Apply template to new applications
 - Template library with categorization (by role type, industry)
 
 ### 11. Follow-up Emails
+
 - Auto-suggest a follow-up if no reply within X days
 - Generate follow-up email referencing the original
 - Schedule follow-up as a separate email in the queue
 
 ### 12. Bulk Operations
+
 - Select multiple applications and update status
 - Schedule multiple emails at once
 - Export applications to CSV
 
 ### 13. Search & Filters
+
 - Full-text search across applications (company, role, JD)
 - Filter by date range, status, company
 - Sort by date, status, company name
 
 ### 14. Email Analytics
+
 - Track if email was opened (if using email API with tracking)
 - Link click tracking
 - Bounce detection
 
 ### 15. Notification System
+
 - In-app notifications for:
   - Email sent successfully
   - Email failed to send
@@ -116,31 +131,37 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 ## P2 — Future / Stretch Features
 
 ### 16. LinkedIn Integration
+
 - Detect hiring posts from LinkedIn feed
 - Auto-extract job details from LinkedIn post URL
 - Store detected opportunities for outreach
 
 ### 17. Multi-Channel Outreach
+
 - Support LinkedIn InMail message drafting
 - Support Twitter DM drafting
 - Channel-aware email generation
 
 ### 18. Smart Scheduling
+
 - AI-suggested send times based on timezone and industry
 - A/B test different send times
 - Optimal time learning from response data
 
 ### 19. Resume Tailoring
+
 - AI suggests resume modifications for specific roles
 - Highlight which resume sections are most relevant
 - Generate role-specific resume summaries
 
 ### 20. Team / Multi-User Support
+
 - Multiple user accounts with individual dashboards
 - Admin view across all users (for coaching/mentoring scenarios)
 - Shared template library
 
 ### 21. Webhook Integration
+
 - Incoming webhook for email replies (via email provider)
 - Auto-update application status on reply detection
 - Slack/Discord notifications

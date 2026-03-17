@@ -248,7 +248,7 @@ Each layer communicates through **interfaces**, making unit testing straightforw
 
 ### 4.2 Router setup
 
-Use `chi` or `gin` to define routes:
+Use `Fiber` to define routes:
 
 ```
 /api

@@ -1,0 +1,27 @@
+# Environment
+.env
+*.env.local
+
+# Go
+api-gateway/tmp/
+worker/tmp/
+
+# Python
+ai-service/venv/
+ai-service/__pycache__/
+*.pyc
+
+# Node
+frontend/node_modules/
+frontend/.next/
+
+# IDE
+.vscode/
+.idea/
+.cursor/
+
+# OS
+.DS_Store
+
+# Uploads
+uploads/

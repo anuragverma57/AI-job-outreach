@@ -82,7 +82,7 @@ The central backend service. All client requests go through here.
 | Analytics | Aggregate stats for the dashboard |
 
 **Key Design Decisions:**
-- Uses the `chi` or `gin` router for HTTP routing
+- Uses the `Fiber` framework for HTTP routing
 - Talks to PostgreSQL via `pgx` or `sqlx`
 - Talks to Redis via `go-redis`
 - Calls AI Service over internal HTTP (service-to-service)
