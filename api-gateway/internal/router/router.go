@@ -7,6 +7,7 @@ import (
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/repository"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/service"
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
@@ -14,6 +15,12 @@ import (
 )
 
 func Setup(app *fiber.App, db *pgxpool.Pool, cfg *config.Config) {
+	app.Use(cors.New(cors.Config{
+		AllowOrigins:     cfg.CORSOrigins,
+		AllowMethods:     "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+		AllowHeaders:     "Content-Type,Authorization",
+		AllowCredentials: true,
+	}))
 	app.Use(logger.New())
 	app.Use(recover.New())
 	app.Use(requestid.New())

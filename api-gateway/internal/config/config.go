@@ -10,6 +10,7 @@ import (
 type Config struct {
 	Port        string
 	DatabaseURL string
+	CORSOrigins string
 	JWT         JWTConfig
 	Cookie      CookieConfig
 }
@@ -48,6 +49,7 @@ func Load() *Config {
 	return &Config{
 		Port:        port,
 		DatabaseURL: dbURL,
+		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
 		JWT: JWTConfig{
 			Secret:             getEnv("JWT_SECRET", "dev-jwt-secret-change-in-production"),
 			AccessTokenExpiry:  time.Duration(accessMins) * time.Minute,
