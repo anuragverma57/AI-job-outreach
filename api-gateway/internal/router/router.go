@@ -28,13 +28,16 @@ func Setup(app *fiber.App, db *pgxpool.Pool, cfg *config.Config) {
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	tokenRepo := repository.NewTokenRepository(db)
+	resumeRepo := repository.NewResumeRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, tokenRepo, cfg)
+	resumeService := service.NewResumeService(resumeRepo, cfg.UploadDir)
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(db)
 	authHandler := handler.NewAuthHandler(authService, cfg)
+	resumeHandler := handler.NewResumeHandler(resumeService)
 
 	// Public routes
 	app.Get("/health", healthHandler.Check)
@@ -45,7 +48,12 @@ func Setup(app *fiber.App, db *pgxpool.Pool, cfg *config.Config) {
 	auth.Post("/refresh", authHandler.Refresh)
 	auth.Post("/logout", authHandler.Logout)
 
-	// Protected routes (everything under /api beyond /api/auth)
+	// Protected routes
 	api := app.Group("/api", appMiddleware.AuthRequired(authService))
 	api.Get("/me", authHandler.Me)
+
+	resumes := api.Group("/resumes")
+	resumes.Post("/", resumeHandler.Upload)
+	resumes.Get("/", resumeHandler.List)
+	resumes.Delete("/:id", resumeHandler.Delete)
 }
