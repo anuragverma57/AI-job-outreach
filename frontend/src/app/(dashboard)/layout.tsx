@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { AuthProvider } from "@/hooks/use-auth";
 import { AuthGuard } from "@/components/layout/auth-guard";
 import { Sidebar } from "@/components/layout/sidebar";
@@ -10,14 +11,19 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <AuthProvider>
       <AuthGuard>
         <div className="flex min-h-svh">
-          <Sidebar />
-          <div className="flex flex-1 flex-col pl-60">
-            <Header />
-            <main className="flex-1 p-6">{children}</main>
+          <Sidebar
+            open={sidebarOpen}
+            onClose={() => setSidebarOpen(false)}
+          />
+          <div className="flex flex-1 flex-col md:pl-60">
+            <Header onMenuToggle={() => setSidebarOpen((prev) => !prev)} />
+            <main className="flex-1 p-4 md:p-6">{children}</main>
           </div>
         </div>
       </AuthGuard>

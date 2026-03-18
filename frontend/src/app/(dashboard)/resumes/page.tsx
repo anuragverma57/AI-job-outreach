@@ -65,14 +65,14 @@ export default function ResumesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Resumes</h1>
           <p className="text-sm text-muted-foreground">
             Upload and manage your resumes for AI email generation.
           </p>
         </div>
-        <div>
+        <div className="shrink-0">
           <input
             ref={fileInputRef}
             type="file"
@@ -161,13 +161,13 @@ function ResumeCard({
   }
 
   return (
-    <div className="flex items-center justify-between rounded-xl border bg-card px-5 py-4 transition-colors hover:bg-muted/30">
-      <div className="flex items-center gap-4">
-        <div className="rounded-lg bg-muted p-2.5">
+    <div className="flex items-center justify-between gap-3 rounded-xl border bg-card px-4 py-4 transition-colors hover:bg-muted/30 sm:px-5">
+      <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+        <div className="hidden shrink-0 rounded-lg bg-muted p-2.5 sm:block">
           <FileText className="size-5 text-muted-foreground" />
         </div>
-        <div>
-          <p className="text-sm font-medium">{resume.file_name}</p>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{resume.file_name}</p>
           <p className="text-xs text-muted-foreground">
             Uploaded {new Date(resume.created_at).toLocaleDateString("en-US", {
               month: "short",
