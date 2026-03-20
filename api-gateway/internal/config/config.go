@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	CORSOrigins string
-	UploadDir   string
-	JWT         JWTConfig
-	Cookie      CookieConfig
+	Port           string
+	DatabaseURL    string
+	CORSOrigins    string
+	UploadDir      string
+	AIServiceURL   string
+	JWT            JWTConfig
+	Cookie         CookieConfig
 }
 
 type JWTConfig struct {
@@ -48,10 +49,11 @@ func Load() *Config {
 	secureCookie := getEnv("COOKIE_SECURE", "false") == "true"
 
 	return &Config{
-		Port:        port,
-		DatabaseURL: dbURL,
-		CORSOrigins: getEnv("CORS_ORIGINS", "http://localhost:3000"),
-		UploadDir:   getEnv("UPLOAD_DIR", "./uploads"),
+		Port:         port,
+		DatabaseURL:  dbURL,
+		CORSOrigins:  getEnv("CORS_ORIGINS", "http://localhost:3000"),
+		UploadDir:    getEnv("UPLOAD_DIR", "./uploads"),
+		AIServiceURL: getEnv("AI_SERVICE_URL", "http://localhost:8000"),
 		JWT: JWTConfig{
 			Secret:             getEnv("JWT_SECRET", "dev-jwt-secret-change-in-production"),
 			AccessTokenExpiry:  time.Duration(accessMins) * time.Minute,

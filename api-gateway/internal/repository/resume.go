@@ -83,6 +83,17 @@ func (r *ResumeRepository) FindByID(ctx context.Context, id string) (*model.Resu
 	return resume, nil
 }
 
+func (r *ResumeRepository) UpdateParsedText(ctx context.Context, id string, parsedText string) error {
+	result, err := r.db.Exec(ctx, `UPDATE resumes SET parsed_text = $2 WHERE id = $1`, id, parsedText)
+	if err != nil {
+		return err
+	}
+	if result.RowsAffected() == 0 {
+		return ErrResumeNotFound
+	}
+	return nil
+}
+
 func (r *ResumeRepository) Delete(ctx context.Context, id string) error {
 	result, err := r.db.Exec(ctx, `DELETE FROM resumes WHERE id = $1`, id)
 	if err != nil {

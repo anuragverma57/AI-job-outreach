@@ -5,6 +5,16 @@ import type {
   ApiError,
 } from "@/types/user";
 import type { ResumeListResponse, ResumeUploadResponse } from "@/types/resume";
+import type {
+  ApplicationResponse,
+  ApplicationListResponse,
+  CreateApplicationRequest,
+} from "@/types/application";
+import type {
+  EmailResponse,
+  EmailTone,
+  UpdateEmailRequest,
+} from "@/types/email";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -102,6 +112,67 @@ class ApiClient {
 
   async deleteResume(id: string): Promise<void> {
     await this.request(`/api/resumes/${id}`, { method: "DELETE" });
+  }
+
+  // --- Application endpoints ---
+
+  async createApplication(
+    data: CreateApplicationRequest
+  ): Promise<ApplicationResponse> {
+    return this.request<ApplicationResponse>("/api/applications", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async listApplications(): Promise<ApplicationListResponse> {
+    return this.request<ApplicationListResponse>("/api/applications");
+  }
+
+  async getApplication(id: string): Promise<ApplicationResponse> {
+    return this.request<ApplicationResponse>(`/api/applications/${id}`);
+  }
+
+  async deleteApplication(id: string): Promise<void> {
+    await this.request(`/api/applications/${id}`, { method: "DELETE" });
+  }
+
+  // --- Email endpoints ---
+
+  async generateEmail(
+    applicationId: string,
+    tone: EmailTone
+  ): Promise<EmailResponse> {
+    return this.request<EmailResponse>(
+      `/api/applications/${applicationId}/generate-email`,
+      { method: "POST", body: JSON.stringify({ tone }) }
+    );
+  }
+
+  async getEmail(applicationId: string): Promise<EmailResponse> {
+    return this.request<EmailResponse>(
+      `/api/applications/${applicationId}/email`
+    );
+  }
+
+  async regenerateEmail(
+    applicationId: string,
+    tone: EmailTone
+  ): Promise<EmailResponse> {
+    return this.request<EmailResponse>(
+      `/api/applications/${applicationId}/regenerate-email`,
+      { method: "POST", body: JSON.stringify({ tone }) }
+    );
+  }
+
+  async updateEmail(
+    emailId: string,
+    data: UpdateEmailRequest
+  ): Promise<EmailResponse> {
+    return this.request<EmailResponse>(`/api/emails/${emailId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 }
 

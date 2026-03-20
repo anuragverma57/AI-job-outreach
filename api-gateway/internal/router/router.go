@@ -1,6 +1,7 @@
 package router
 
 import (
+	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/client"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/config"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/handler"
 	appMiddleware "github.com/anuragverma/ai-job-outreach/api-gateway/internal/middleware"
@@ -25,19 +26,28 @@ func Setup(app *fiber.App, db *pgxpool.Pool, cfg *config.Config) {
 	app.Use(recover.New())
 	app.Use(requestid.New())
 
+	// Clients
+	aiClient := client.NewAIClient(cfg.AIServiceURL)
+
 	// Repositories
 	userRepo := repository.NewUserRepository(db)
 	tokenRepo := repository.NewTokenRepository(db)
 	resumeRepo := repository.NewResumeRepository(db)
+	appRepo := repository.NewApplicationRepository(db)
+	emailRepo := repository.NewEmailRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, tokenRepo, cfg)
-	resumeService := service.NewResumeService(resumeRepo, cfg.UploadDir)
+	resumeService := service.NewResumeService(resumeRepo, cfg.UploadDir, aiClient)
+	appService := service.NewApplicationService(appRepo, resumeRepo)
+	emailService := service.NewEmailService(emailRepo, appRepo, resumeRepo, aiClient)
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(db)
 	authHandler := handler.NewAuthHandler(authService, cfg)
 	resumeHandler := handler.NewResumeHandler(resumeService)
+	appHandler := handler.NewApplicationHandler(appService)
+	emailHandler := handler.NewEmailHandler(emailService)
 
 	// Public routes
 	app.Get("/health", healthHandler.Check)
@@ -56,4 +66,17 @@ func Setup(app *fiber.App, db *pgxpool.Pool, cfg *config.Config) {
 	resumes.Post("/", resumeHandler.Upload)
 	resumes.Get("/", resumeHandler.List)
 	resumes.Delete("/:id", resumeHandler.Delete)
+
+	applications := api.Group("/applications")
+	applications.Post("/", appHandler.Create)
+	applications.Get("/", appHandler.List)
+	applications.Get("/:id", appHandler.GetByID)
+	applications.Put("/:id", appHandler.Update)
+	applications.Delete("/:id", appHandler.Delete)
+	applications.Post("/:id/generate-email", emailHandler.GenerateEmail)
+	applications.Post("/:id/regenerate-email", emailHandler.RegenerateEmail)
+	applications.Get("/:id/email", emailHandler.GetByApplication)
+
+	emails := api.Group("/emails")
+	emails.Put("/:id", emailHandler.Update)
 }

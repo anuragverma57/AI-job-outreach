@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/client"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/model"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/repository"
 	"github.com/google/uuid"
@@ -26,12 +28,14 @@ const maxFileSize = 5 * 1024 * 1024 // 5MB
 type ResumeService struct {
 	resumeRepo *repository.ResumeRepository
 	uploadDir  string
+	aiClient   *client.AIClient
 }
 
-func NewResumeService(resumeRepo *repository.ResumeRepository, uploadDir string) *ResumeService {
+func NewResumeService(resumeRepo *repository.ResumeRepository, uploadDir string, aiClient *client.AIClient) *ResumeService {
 	return &ResumeService{
 		resumeRepo: resumeRepo,
 		uploadDir:  uploadDir,
+		aiClient:   aiClient,
 	}
 }
 
@@ -50,7 +54,6 @@ func (s *ResumeService) Upload(ctx context.Context, userID string, fileHeader *m
 		return nil, fmt.Errorf("failed to create upload directory: %w", err)
 	}
 
-	// Use UUID filename to prevent collisions and path traversal
 	storedName := uuid.New().String() + ".pdf"
 	destPath := filepath.Join(userDir, storedName)
 
@@ -77,6 +80,26 @@ func (s *ResumeService) Upload(ctx context.Context, userID string, fileHeader *m
 		return nil, fmt.Errorf("failed to save resume record: %w", err)
 	}
 
+	// Parse resume text via AI service — fail the entire request if parsing fails
+	fileBytes, readErr := os.ReadFile(destPath)
+	if readErr != nil {
+		return nil, fmt.Errorf("failed to read saved file for parsing: %w", readErr)
+	}
+
+	parseResp, parseErr := s.aiClient.ParseResume(fileHeader.Filename, fileBytes)
+	if parseErr != nil {
+		// Rollback: remove DB record and file
+		_ = s.resumeRepo.Delete(ctx, resume.ID)
+		os.Remove(destPath)
+		return nil, fmt.Errorf("resume parsing failed: %w", parseErr)
+	}
+
+	if err := s.resumeRepo.UpdateParsedText(ctx, resume.ID, parseResp.ParsedText); err != nil {
+		log.Printf("WARNING: parsed text saved via AI but DB update failed for resume %s: %v", resume.ID, err)
+	} else {
+		resume.ParsedText = &parseResp.ParsedText
+	}
+
 	return resume, nil
 }
 
@@ -98,7 +121,6 @@ func (s *ResumeService) Delete(ctx context.Context, userID, resumeID string) err
 		return err
 	}
 
-	// Clean up the file — best effort, don't fail if file is already gone
 	os.Remove(resume.FilePath)
 
 	return nil
