@@ -109,6 +109,14 @@ func (r *ApplicationRepository) Update(ctx context.Context, id string, req *mode
 	return app, nil
 }
 
+func (r *ApplicationRepository) UpdateStatus(ctx context.Context, id, status string) error {
+	_, err := r.db.Exec(ctx,
+		`UPDATE applications SET status = $2, updated_at = NOW() WHERE id = $1`,
+		id, status,
+	)
+	return err
+}
+
 func (r *ApplicationRepository) Delete(ctx context.Context, id string) error {
 	result, err := r.db.Exec(ctx, `DELETE FROM applications WHERE id = $1`, id)
 	if err != nil {

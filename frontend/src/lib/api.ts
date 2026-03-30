@@ -14,6 +14,7 @@ import type {
   EmailResponse,
   EmailTone,
   UpdateEmailRequest,
+  ScheduledEmailListResponse,
 } from "@/types/email";
 
 const API_BASE_URL =
@@ -173,6 +174,40 @@ class ApiClient {
       method: "PUT",
       body: JSON.stringify(data),
     });
+  }
+
+  // --- Schedule endpoints ---
+
+  async scheduleEmail(
+    emailId: string,
+    sendAt: string
+  ): Promise<EmailResponse> {
+    return this.request<EmailResponse>(`/api/emails/${emailId}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ send_at: sendAt }),
+    });
+  }
+
+  async rescheduleEmail(
+    emailId: string,
+    sendAt: string
+  ): Promise<EmailResponse> {
+    return this.request<EmailResponse>(`/api/emails/${emailId}/schedule`, {
+      method: "PUT",
+      body: JSON.stringify({ send_at: sendAt }),
+    });
+  }
+
+  async cancelSchedule(emailId: string): Promise<EmailResponse> {
+    return this.request<EmailResponse>(`/api/emails/${emailId}/schedule`, {
+      method: "DELETE",
+    });
+  }
+
+  async listScheduledEmails(): Promise<ScheduledEmailListResponse> {
+    return this.request<ScheduledEmailListResponse>(
+      "/api/emails?status=scheduled"
+    );
   }
 }
 

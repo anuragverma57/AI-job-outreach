@@ -2,6 +2,18 @@
 
 Features are organized by priority. **P0** = must-have for MVP, **P1** = important but can follow, **P2** = nice-to-have / future.
 
+## Implementation status (high level)
+
+| Area | Status |
+|------|--------|
+| P0 §1–2 Auth & resumes | Shipped (core flows) |
+| P0 §3 Applications CRUD | Shipped |
+| P0 §4–5 AI email generation & review/edit | Shipped |
+| **P0 §6–7 Scheduling & automated send** | **In progress — next milestone (Phase 4)** |
+| P0 §8–9 Tracking & dashboard analytics | Not started |
+
+**Next build focus:** §6–7 — Redis-backed scheduling, Go **worker** that sends at `scheduled_at`, SMTP or transactional email API, retries and status updates. See `docs/PHASES.md` Phase 4.
+
 ---
 
 ## P0 — Core MVP Features
@@ -60,6 +72,16 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Cancel a scheduled email before it's sent
 - Reschedule a pending email
 
+**Phase 4 implementation notes (backend):**
+
+- Persist `scheduled_at` on `emails` (already in schema) and set `status` to `scheduled` when the user confirms a send time.
+- Enqueue work in **Redis** (e.g. sorted set: member = `email_id`, score = send time as Unix ms/seconds) or Redis Streams — pick one and document it.
+- Expose authenticated HTTP APIs, for example:
+  - `POST /api/emails/:id/schedule` — body: `{ "send_at": "<ISO8601>" }` or `{ "delay_seconds": 7200 }`
+  - `DELETE /api/emails/:id/schedule` — cancel (revert to `draft` or `cancelled` per your rules)
+  - `PUT /api/emails/:id/schedule` — reschedule
+  - `GET /api/emails?status=scheduled` — list due/pending scheduled emails for the current user
+
 ### 7. Automated Email Sending
 
 - Background worker consumes scheduled email jobs
@@ -67,6 +89,12 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Retry failed sends (up to 3 attempts with backoff)
 - Update email status after send (sent / failed)
 - Update application status after successful send
+
+**Phase 4 implementation notes (worker + infra):**
+
+- New **Go worker** process (separate from API Gateway): connects to Redis + Postgres, claims due jobs, sends mail, updates `emails` (`sent_at`, `status`, `retry_count`) and related `applications.status` (e.g. to `applied` after successful send).
+- Configure SMTP/API via env (reuse patterns from `.env.example`); never commit secrets.
+- **Docker Compose:** add `worker` service (and ensure `redis` is used by gateway/worker in dev).
 
 ### 8. Application Status Tracking
 

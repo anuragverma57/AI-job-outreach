@@ -34,3 +34,20 @@ export interface UpdateEmailRequest {
   subject: string;
   body: string;
 }
+
+export interface ScheduleEmailRequest {
+  send_at: string;
+}
+
+export interface ScheduledEmail extends Email {
+  application?: {
+    id: string;
+    company_name: string;
+    role: string;
+    recruiter_email: string;
+  };
+}
+
+export interface ScheduledEmailListResponse {
+  emails: ScheduledEmail[];
+}

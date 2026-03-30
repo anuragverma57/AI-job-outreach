@@ -10,11 +10,21 @@ import (
 type Config struct {
 	Port           string
 	DatabaseURL    string
+	RedisURL       string
 	CORSOrigins    string
 	UploadDir      string
 	AIServiceURL   string
 	JWT            JWTConfig
 	Cookie         CookieConfig
+	SMTP           SMTPConfig
+}
+
+type SMTPConfig struct {
+	Host     string
+	Port     string
+	User     string
+	Password string
+	From     string
 }
 
 type JWTConfig struct {
@@ -48,9 +58,23 @@ func Load() *Config {
 	refreshDays := getEnvInt("JWT_REFRESH_EXPIRY_DAYS", 7)
 	secureCookie := getEnv("COOKIE_SECURE", "false") == "true"
 
+	redisURL := os.Getenv("REDIS_URL")
+	if redisURL == "" {
+		redisURL = fmt.Sprintf("redis://%s:%s/0",
+			getEnv("REDIS_HOST", "localhost"),
+			getEnv("REDIS_PORT", "6379"),
+		)
+	}
+
+	smtpFrom := getEnv("SMTP_FROM", "")
+	if smtpFrom == "" {
+		smtpFrom = getEnv("SMTP_USER", "")
+	}
+
 	return &Config{
 		Port:         port,
 		DatabaseURL:  dbURL,
+		RedisURL:     redisURL,
 		CORSOrigins:  getEnv("CORS_ORIGINS", "http://localhost:3000"),
 		UploadDir:    getEnv("UPLOAD_DIR", "./uploads"),
 		AIServiceURL: getEnv("AI_SERVICE_URL", "http://localhost:8000"),
@@ -63,6 +87,13 @@ func Load() *Config {
 			Secure:   secureCookie,
 			SameSite: getEnv("COOKIE_SAMESITE", "Lax"),
 			Domain:   getEnv("COOKIE_DOMAIN", ""),
+		},
+		SMTP: SMTPConfig{
+			Host:     getEnv("SMTP_HOST", "smtp.gmail.com"),
+			Port:     getEnv("SMTP_PORT", "587"),
+			User:     getEnv("SMTP_USER", ""),
+			Password: getEnv("SMTP_PASSWORD", ""),
+			From:     smtpFrom,
 		},
 	}
 }

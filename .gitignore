@@ -4,6 +4,9 @@
 
 # Go
 api-gateway/tmp/
+api-gateway/server
+api-gateway/worker
+api-gateway/bin/
 worker/tmp/
 
 # Python

@@ -51,18 +51,79 @@ All services are containerized with **Docker** and orchestrated via **Docker Com
 
 > Implementation details coming soon. See [Phases](docs/PHASES.md) for the development roadmap.
 
+## Run Locally (each service)
+
+### 0) Configure environment
+
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd AI-job-outreach
-
-# Start all services
-docker-compose up --build
-
-# API Gateway:    http://localhost:8080
-# AI Service:     http://localhost:8000
-# Frontend:       http://localhost:3000
+cp .env.example .env
 ```
+
+Edit `.env` as needed (especially API keys and SMTP/email settings).
+
+### 1) Start infrastructure (Postgres + Redis)
+
+```bash
+make up
+```
+
+Ports:
+- Postgres: `localhost:5433`
+- Redis: `localhost:6379`
+
+### 2) Run database migrations
+
+```bash
+make migrate-up
+```
+
+### 3) API Gateway (Go / Fiber)
+
+```bash
+make run-api
+```
+
+Port:
+- `http://localhost:8080`
+
+### 4) AI Service (Python / FastAPI)
+
+One-time setup:
+
+```bash
+make setup-ai
+```
+
+Run:
+
+```bash
+make run-ai
+```
+
+Port:
+- `http://localhost:8000`
+
+### 5) Worker (Go / background sender)
+
+```bash
+make run-worker
+```
+
+### 6) Frontend (Next.js)
+
+From repo root:
+
+```bash
+cd frontend && npm install && npm run dev
+```
+
+Port:
+- `http://localhost:3000`
+
+### Convenience
+
+`make dev` starts: Docker infra + migrations + AI service (in background) + API gateway.
+Run the frontend separately.
 
 ## Project Status
 

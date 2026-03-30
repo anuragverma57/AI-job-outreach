@@ -70,6 +70,64 @@ func (h *EmailHandler) Update(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"email": email})
 }
 
+func (h *EmailHandler) Schedule(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	emailID := c.Params("id")
+
+	var req model.ScheduleEmailRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	email, err := h.emailService.ScheduleEmail(c.Context(), userID, emailID, req)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"email": email})
+}
+
+func (h *EmailHandler) CancelSchedule(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	emailID := c.Params("id")
+
+	email, err := h.emailService.CancelSchedule(c.Context(), userID, emailID)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"email": email})
+}
+
+func (h *EmailHandler) Reschedule(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	emailID := c.Params("id")
+
+	var req model.ScheduleEmailRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	email, err := h.emailService.RescheduleEmail(c.Context(), userID, emailID, req)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"email": email})
+}
+
+func (h *EmailHandler) ListByStatus(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	status := c.Query("status", "scheduled")
+
+	emails, err := h.emailService.ListByStatus(c.Context(), userID, status)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "failed to fetch emails"})
+	}
+
+	return c.JSON(fiber.Map{"emails": emails})
+}
+
 func (h *EmailHandler) handleError(c *fiber.Ctx, err error) error {
 	switch {
 	case errors.Is(err, service.ErrInvalidInput):
@@ -80,10 +138,18 @@ func (h *EmailHandler) handleError(c *fiber.Ctx, err error) error {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "you don't have access to this email"})
 	case errors.Is(err, service.ErrResumeParsedTextEmpty):
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	case errors.Is(err, service.ErrEmailNotSchedulable):
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+	case errors.Is(err, service.ErrEmailNotScheduled):
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+	case errors.Is(err, service.ErrScheduleInPast):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	case errors.Is(err, service.ErrMaxDelayExceeded):
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	case errors.Is(err, repository.ErrApplicationNotFound):
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "application not found"})
 	case errors.Is(err, repository.ErrEmailNotFound):
-		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "no email found for this application"})
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "no email found"})
 	default:
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "internal server error"})
 	}

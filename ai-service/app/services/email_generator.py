@@ -1,14 +1,15 @@
 import json
 
-from google import genai
+import httpx
 
-from app.config import GEMINI_API_KEY, GEMINI_MODEL
+from app.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 from app.models.requests import GenerateEmailRequest
 from app.models.responses import GenerateEmailResponse
 from app.prompts.email_prompt import SYSTEM_PROMPT, build_user_prompt
 
 
-client = genai.Client(api_key=GEMINI_API_KEY)
+def _chat_completions_url() -> str:
+    return f"{LLM_BASE_URL}/chat/completions"
 
 
 def generate_email(req: GenerateEmailRequest) -> GenerateEmailResponse:
@@ -20,20 +21,30 @@ def generate_email(req: GenerateEmailRequest) -> GenerateEmailResponse:
         tone=req.tone,
     )
 
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=[
-            {"role": "user", "parts": [{"text": SYSTEM_PROMPT + "\n\n" + user_prompt}]}
+    payload = {
+        "model": LLM_MODEL,
+        "messages": [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": user_prompt},
         ],
-        config={
-            "temperature": 0.7,
-            "max_output_tokens": 2048,
-        },
-    )
+        "temperature": 0.7,
+        "max_tokens": 2048,
+    }
 
-    raw_text = response.text.strip()
+    headers = {"Content-Type": "application/json"}
+    if LLM_API_KEY:
+        headers["Authorization"] = f"Bearer {LLM_API_KEY}"
 
-    # Strip markdown code fences if present
+    with httpx.Client(timeout=120.0) as client:
+        response = client.post(_chat_completions_url(), json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+    try:
+        raw_text = data["choices"][0]["message"]["content"].strip()
+    except (KeyError, IndexError, TypeError) as e:
+        raise ValueError(f"Unexpected LLM response shape: {data}") from e
+
     if raw_text.startswith("```"):
         lines = raw_text.split("\n")
         lines = [l for l in lines if not l.strip().startswith("```")]

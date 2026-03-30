@@ -49,6 +49,15 @@ run-api:
 build-api:
 	cd api-gateway && GOTOOLCHAIN=local go build -o bin/server cmd/server/main.go
 
+# --- Worker ---
+.PHONY: run-worker build-worker
+
+run-worker:
+	cd api-gateway && GOTOOLCHAIN=local go run cmd/worker/main.go
+
+build-worker:
+	cd api-gateway && GOTOOLCHAIN=local go build -o bin/worker cmd/worker/main.go
+
 # --- AI Service ---
 .PHONY: setup-ai run-ai
 

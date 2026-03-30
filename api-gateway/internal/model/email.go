@@ -29,3 +29,8 @@ type UpdateEmailRequest struct {
 	Subject string `json:"subject"`
 	Body    string `json:"body"`
 }
+
+type ScheduleEmailRequest struct {
+	SendAt       *time.Time `json:"send_at,omitempty"`
+	DelaySeconds *int64     `json:"delay_seconds,omitempty"`
+}

@@ -6,6 +6,7 @@ import (
 
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/config"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/database"
+	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/queue"
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/router"
 	"github.com/gofiber/fiber/v2"
 )
@@ -20,11 +21,18 @@ func main() {
 	defer db.Close()
 	log.Println("Database connected")
 
+	rq, err := queue.NewRedisQueue(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("failed to connect to redis: %v", err)
+	}
+	defer rq.Close()
+	log.Println("Redis connected")
+
 	app := fiber.New(fiber.Config{
 		AppName: "API Gateway",
 	})
 
-	router.Setup(app, db, cfg)
+	router.Setup(app, db, rq, cfg)
 
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("API Gateway starting on %s", addr)
