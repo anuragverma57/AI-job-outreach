@@ -1,11 +1,10 @@
-import json
-
 import httpx
 
 from app.config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL
 from app.models.requests import GenerateEmailRequest
 from app.models.responses import GenerateEmailResponse
 from app.prompts.email_prompt import SYSTEM_PROMPT, build_user_prompt
+from app.services.llm_response import extract_message_content, parse_email_json
 
 
 def _chat_completions_url() -> str:
@@ -21,7 +20,7 @@ def generate_email(req: GenerateEmailRequest) -> GenerateEmailResponse:
         tone=req.tone,
     )
 
-    payload = {
+    payload: dict = {
         "model": LLM_MODEL,
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -35,22 +34,40 @@ def generate_email(req: GenerateEmailRequest) -> GenerateEmailResponse:
     if LLM_API_KEY:
         headers["Authorization"] = f"Bearer {LLM_API_KEY}"
 
+    url = _chat_completions_url()
+
     with httpx.Client(timeout=120.0) as client:
-        response = client.post(_chat_completions_url(), json=payload, headers=headers)
-        response.raise_for_status()
-        data = response.json()
+        response = client.post(url, json=payload, headers=headers)
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as e:
+            body = response.text[:2000] if response.text else "(empty body)"
+            raise ValueError(
+                f"LLM HTTP {response.status_code} from {url}. Body: {body}"
+            ) from e
+
+        try:
+            data = response.json()
+        except Exception as e:
+            raise ValueError(
+                f"LLM did not return JSON. URL={url} raw={response.text[:500]!r}"
+            ) from e
 
     try:
-        raw_text = data["choices"][0]["message"]["content"].strip()
-    except (KeyError, IndexError, TypeError) as e:
-        raise ValueError(f"Unexpected LLM response shape: {data}") from e
+        raw_text = extract_message_content(data)
+    except ValueError as e:
+        raise ValueError(f"Unexpected LLM response shape: {data!r}") from e
 
-    if raw_text.startswith("```"):
-        lines = raw_text.split("\n")
-        lines = [l for l in lines if not l.strip().startswith("```")]
-        raw_text = "\n".join(lines).strip()
+    try:
+        parsed = parse_email_json(raw_text)
+    except ValueError:
+        raise
 
-    parsed = json.loads(raw_text)
+    for key in ("subject", "body"):
+        if key not in parsed:
+            raise ValueError(
+                f"JSON missing '{key}'. Keys present: {list(parsed.keys())}"
+            )
 
     return GenerateEmailResponse(
         subject=parsed["subject"],
