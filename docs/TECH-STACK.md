@@ -11,7 +11,7 @@
 | Frontend         | Next.js (React)         | Dashboard UI, application management              |
 | Database         | PostgreSQL              | Primary data store                                |
 | Queue & Cache    | Redis                   | Job queues, caching, pub/sub                      |
-| Containerization | Docker + Docker Compose | Local development and deployment                  |
+| Containerization | Docker + Docker Compose | **Postgres + Redis** in dev; app processes via Makefile |
 
 
 ---
@@ -20,7 +20,7 @@
 
 **Version:** 1.22+
 
-**Used for:** API Gateway, Worker Service
+**Used for:** API Gateway and **Worker** (second `main` in `api-gateway/cmd/worker`)
 
 **Why Go:**
 
@@ -56,24 +56,22 @@
 
 **Why Python:**
 
-- First-class support for OpenAI SDK and LLM tooling
-- FastAPI provides async performance with auto-generated API docs
-- Rich ecosystem for text processing (resume parsing, NLP)
-- Fastest path to LLM integration
+- FastAPI for HTTP APIs and auto-generated docs
+- `pdfplumber` for PDF text extraction
+- `httpx` to call **any OpenAI-compatible** chat completions endpoint (local Ollama shim, vLLM, cloud APIs)
 
 **Key Libraries:**
 
 
 | Library                  | Purpose                                       |
 | ------------------------ | --------------------------------------------- |
-| `fastapi`                | Async HTTP framework                          |
+| `fastapi`                | HTTP framework                                |
 | `uvicorn`                | ASGI server                                   |
-| `openai`                 | OpenAI API client                             |
 | `pydantic`               | Request/response validation and serialization |
-| `PyPDF2` or `pdfplumber` | PDF resume parsing                            |
+| `pdfplumber`             | PDF resume parsing                            |
 | `python-dotenv`          | Environment variable management               |
-| `httpx`                  | Async HTTP client (if needed)                 |
-| `pytest`                 | Testing                                       |
+| `httpx`                  | Sync HTTP client → `LLM_BASE_URL/chat/completions` |
+| `pytest`                 | Testing (optional)                            |
 
 
 ---
@@ -153,24 +151,19 @@
 
 ## Containerization: Docker + Docker Compose
 
-**Why Docker:**
+**Current repo:** `docker-compose.yml` runs **postgres** (published as **5433** on the host) and **redis** (**6379**). API gateway, worker, AI service, and frontend are started with **`Makefile`** targets on the host (no Dockerfiles required for daily dev).
 
-- Consistent environments across development machines
-- Each service runs in isolation with its own dependencies
-- Docker Compose orchestrates all services with a single command
-- Mirrors production deployment patterns
-
-**Container Layout:**
+**Possible future layout** (not all wired in compose today):
 
 
-| Container     | Base Image           | Exposed Port |
-| ------------- | -------------------- | ------------ |
-| `api-gateway` | `golang:1.22-alpine` | 8080         |
-| `ai-service`  | `python:3.11-slim`   | 8000         |
-| `worker`      | `golang:1.22-alpine` | — (no port)  |
-| `frontend`    | `node:20-alpine`     | 3000         |
-| `postgres`    | `postgres:16-alpine` | 5432         |
-| `redis`       | `redis:7-alpine`     | 6379         |
+| Service       | Typical image        | Port  |
+| ------------- | -------------------- | ----- |
+| `postgres`    | `postgres:16-alpine` | 5433→5432 |
+| `redis`       | `redis:7-alpine`     | 6379  |
+| `api-gateway` | Go build             | 8080  |
+| `ai-service`  | Python slim          | 8000  |
+| `worker`      | Go build (same module as gateway) | — |
+| `frontend`    | Node                 | 3000  |
 
 
 ---
@@ -194,21 +187,16 @@
 
 ## AI / LLM
 
-**Primary:** OpenAI API (GPT-4o or GPT-4o-mini)
+**Configured in this project:** any server that implements **OpenAI Chat Completions** JSON over HTTP:
 
-**Why:**
+- `POST {LLM_BASE_URL}/chat/completions`
+- Response: `choices[0].message.content` (string the model fills with JSON for the email payload)
 
-- Best-in-class for structured text generation
-- Reliable API with good rate limits
-- JSON mode for structured responses
+Environment variables: `LLM_BASE_URL` (no trailing slash; usually ends in `/v1`), `LLM_MODEL`, optional `LLM_API_KEY`.
 
-**Alternatives (if needed):**
+**Examples:** OpenAI-compatible proxy in front of **Ollama**, **vLLM**, or hosted APIs (OpenAI, Groq, etc.).
 
-- Anthropic Claude — strong at following instructions
-- Local models via Ollama — free, private, but lower quality
-- Groq — fast inference for open-source models
-
-**Recommendation:** Start with OpenAI `gpt-4o-mini` (cheap, fast, good enough). Switch to `gpt-4o` or Claude for better quality if needed.
+**Operational note:** Smaller local models may return invalid or empty JSON; the AI service includes parsing helpers and clear errors — tune prompts or model size for reliability.
 
 ---
 

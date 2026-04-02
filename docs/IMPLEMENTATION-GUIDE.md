@@ -14,7 +14,7 @@ Before starting, ensure you have installed:
 - **Docker** and **Docker Compose** (`docker --version`, `docker compose version`)
 - **Git** (`git --version`)
 - A code editor (VS Code / Cursor recommended)
-- An **OpenAI API key** (or equivalent LLM API key)
+- An **LLM endpoint** that speaks **OpenAI Chat Completions** (URL + model name; API key optional), or a hosted key if you point `LLM_BASE_URL` at a cloud provider
 
 ---
 
@@ -30,20 +30,20 @@ git init
 Create the top-level directories:
 
 ```bash
-mkdir -p api-gateway/cmd/server api-gateway/internal
+mkdir -p api-gateway/cmd/server api-gateway/cmd/worker api-gateway/internal
 mkdir -p ai-service/app
-mkdir -p worker/cmd/worker worker/internal
 mkdir -p frontend
 mkdir -p docs scripts
 ```
 
+The **worker** is a second `main` package inside **`api-gateway/cmd/worker`** (same Go module as the gateway).
+
 ### 1.2 Initialize each service
 
-**Go services:**
+**Go module (gateway + worker):**
 
 ```bash
 cd api-gateway && go mod init github.com/<your-username>/ai-job-outreach/api-gateway && cd ..
-cd worker && go mod init github.com/<your-username>/ai-job-outreach/worker && cd ..
 ```
 
 **Python service:**
@@ -51,7 +51,7 @@ cd worker && go mod init github.com/<your-username>/ai-job-outreach/worker && cd
 ```bash
 cd ai-service
 python3 -m venv venv
-pip install fastapi uvicorn openai pydantic pdfplumber python-dotenv
+pip install fastapi uvicorn pydantic pdfplumber python-dotenv httpx python-multipart
 pip freeze > requirements.txt
 cd ..
 ```
@@ -64,33 +64,33 @@ npx create-next-app@latest frontend --typescript --tailwind --eslint --app --src
 
 ### 1.3 Create .env.example
 
+Align with the root **`.env.example`** in the repo. Typical local dev:
+
 ```env
-# Database
-POSTGRES_HOST=postgres
-POSTGRES_PORT=5432
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5433
 POSTGRES_USER=outreach
 POSTGRES_PASSWORD=outreach_secret
 POSTGRES_DB=outreach
 
-# Redis
-REDIS_HOST=redis
+REDIS_HOST=localhost
 REDIS_PORT=6379
 
-# API Gateway
 API_PORT=8080
 JWT_SECRET=your-jwt-secret-change-in-production
+CORS_ORIGINS=http://localhost:3000
 
-# AI Service
-AI_SERVICE_URL=http://ai-service:8000
-OPENAI_API_KEY=sk-your-openai-api-key
+AI_SERVICE_URL=http://localhost:8000
+LLM_BASE_URL=http://your-llm-host:port/v1
+LLM_MODEL=llama3.1
+LLM_API_KEY=
 
-# Worker
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
+SMTP_FROM=your-email@gmail.com
 
-# Frontend
 NEXT_PUBLIC_API_URL=http://localhost:8080
 ```
 
@@ -131,12 +131,15 @@ uploads/
 
 ### 2.1 Docker Compose
 
-The `docker-compose.yml` should define all 6 services. Key decisions:
+**Current repository:** `docker-compose.yml` defines **postgres** and **redis** only. API gateway, worker, AI service, and frontend are started with **`Makefile`** on the host (`make run-api`, `make run-worker`, `make run-ai`, `npm run dev`).
 
-- **Networking:** All services on the same Docker network. Services reference each other by container name (e.g., `postgres`, `redis`, `ai-service`).
-- **Volumes:** Mount source code into containers for hot-reload during development. Use named volumes for database persistence.
-- **Dependency ordering:** Use `depends_on` with health checks so services start in the right order.
-- **Environment variables:** Use `.env` file loaded by Docker Compose.
+**Future / production:** you can add Dockerfiles and extra Compose services so `docker compose up` runs everything; use the same env var names as `.env.example`.
+
+Key decisions when you expand Compose:
+
+- **Networking:** Same Docker network; DB/Redis hostnames become `postgres`, `redis` instead of `localhost`.
+- **Volumes:** Named volumes for Postgres (and Redis if needed).
+- **Health checks:** `depends_on` with `condition: service_healthy` where useful.
 
 ### 2.2 Dockerfiles
 
@@ -164,7 +167,7 @@ For development, use `air` for hot-reload by mounting source code and running `a
 Create a `Makefile` at the project root with common commands:
 
 ```makefile
-up:             docker compose up --build
+up:             docker compose up -d
 down:           docker compose down
 logs:           docker compose logs -f
 restart:        docker compose restart
@@ -197,9 +200,10 @@ Each migration has an `up.sql` and `down.sql` file. Migrations are applied by th
 ### 3.3 Migration order
 
 1. `000001_create_users` — users table
-2. `000002_create_resumes` — resumes table (FK → users)
-3. `000003_create_applications` — applications table (FK → users, resumes)
-4. `000004_create_emails` — emails table (FK → applications)
+2. `000002_create_refresh_tokens` — refresh token storage
+3. `000003_create_resumes` — resumes table (FK → users)
+4. `000004_create_applications` — applications table (FK → users, resumes)
+5. `000005_create_emails` — emails table (FK → applications)
 
 ### 3.4 Key schema notes
 

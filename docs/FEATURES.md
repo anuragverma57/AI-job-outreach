@@ -6,13 +6,13 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 
 | Area | Status |
 |------|--------|
-| P0 §1–2 Auth & resumes | Shipped (core flows) |
-| P0 §3 Applications CRUD | Shipped |
-| P0 §4–5 AI email generation & review/edit | Shipped |
-| **P0 §6–7 Scheduling & automated send** | **In progress — next milestone (Phase 4)** |
-| P0 §8–9 Tracking & dashboard analytics | Not started |
+| P0 §1–2 Auth & resumes | Shipped |
+| P0 §3 Applications CRUD | Shipped (list/detail/new; **filters/search** not in UI yet) |
+| P0 §4–5 AI email generation & review/edit | Shipped (quality depends on external LLM) |
+| P0 §6–7 Scheduling & automated send | **Shipped in code** — run **Redis**, **API gateway**, **`make run-worker`**, and valid **SMTP** to verify end-to-end |
+| P0 §8–9 Tracking & dashboard analytics | **Not started** (dashboard shows placeholder zeros; no `/analytics` page) |
 
-**Next build focus:** §6–7 — Redis-backed scheduling, Go **worker** that sends at `scheduled_at`, SMTP or transactional email API, retries and status updates. See `docs/PHASES.md` Phase 4.
+**Next build focus:** §8–9 — status updates API, real dashboard metrics, optional `/analytics` route. See [CURRENT-STATE.md](CURRENT-STATE.md).
 
 ---
 
@@ -41,7 +41,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
   - Recruiter email
   - Job description (text)
   - Job posting link
-- View all applications (list with filters)
+- View all applications (list; **filters** = future)
 - View single application detail
 - Edit application details
 - Delete application
@@ -72,15 +72,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Cancel a scheduled email before it's sent
 - Reschedule a pending email
 
-**Phase 4 implementation notes (backend):**
-
-- Persist `scheduled_at` on `emails` (already in schema) and set `status` to `scheduled` when the user confirms a send time.
-- Enqueue work in **Redis** (e.g. sorted set: member = `email_id`, score = send time as Unix ms/seconds) or Redis Streams — pick one and document it.
-- Expose authenticated HTTP APIs, for example:
-  - `POST /api/emails/:id/schedule` — body: `{ "send_at": "<ISO8601>" }` or `{ "delay_seconds": 7200 }`
-  - `DELETE /api/emails/:id/schedule` — cancel (revert to `draft` or `cancelled` per your rules)
-  - `PUT /api/emails/:id/schedule` — reschedule
-  - `GET /api/emails?status=scheduled` — list due/pending scheduled emails for the current user
+**Implemented (reference):** Gateway exposes `POST/PUT/DELETE /api/emails/:id/schedule` and `GET /api/emails?status=scheduled`. Queue implementation lives under `api-gateway/internal/queue`.
 
 ### 7. Automated Email Sending
 
@@ -90,11 +82,7 @@ Features are organized by priority. **P0** = must-have for MVP, **P1** = importa
 - Update email status after send (sent / failed)
 - Update application status after successful send
 
-**Phase 4 implementation notes (worker + infra):**
-
-- New **Go worker** process (separate from API Gateway): connects to Redis + Postgres, claims due jobs, sends mail, updates `emails` (`sent_at`, `status`, `retry_count`) and related `applications.status` (e.g. to `applied` after successful send).
-- Configure SMTP/API via env (reuse patterns from `.env.example`); never commit secrets.
-- **Docker Compose:** add `worker` service (and ensure `redis` is used by gateway/worker in dev).
+**Implemented:** Worker entrypoint `api-gateway/cmd/worker` + `internal/sender` (SMTP). Run with `make run-worker`. Optional future: Resend/SendGrid in addition to SMTP.
 
 ### 8. Application Status Tracking
 

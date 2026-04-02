@@ -1,133 +1,98 @@
 # AI Job Outreach Automation Platform
 
-An intelligent job application automation system that helps candidates streamline their job hunting workflow — from analyzing job descriptions and generating personalized cold emails to scheduling sends and tracking application progress.
+An intelligent job application automation system that helps candidates streamline job hunting — from resumes and job applications to AI-generated cold emails, scheduled sending, and (planned) pipeline analytics.
 
-## What This Project Does
+## What this project does
 
-Job hunting involves a lot of repetitive manual work: reading job descriptions, crafting emails, sending them at the right time, and tracking responses. This platform automates most of that pipeline.
+**Resume & applications** → **AI draft email** → **Edit** → **Schedule** → **Worker sends via SMTP** → *(planned)* **Track & dashboard**
 
-**Input a job opportunity** → **AI generates a personalized cold email** → **Review & schedule** → **Auto-send** → **Track progress on a dashboard**
+## Key capabilities (today)
 
-## Key Capabilities
+| Capability | Status |
+|------------|--------|
+| Auth (register, login, refresh, cookies) | Implemented |
+| Resume PDF upload, parse text, list/delete | Implemented |
+| Job applications CRUD | Implemented |
+| AI email generate / regenerate / edit | Implemented (depends on external LLM latency & quality) |
+| Schedule / cancel / reschedule; list scheduled | Implemented |
+| Background worker + SMTP send | Implemented (`make run-worker`) |
+| Real dashboard analytics | Not yet (placeholder UI) |
+| `/analytics` page | Not yet (sidebar link may 404) |
 
-- **Resume & JD Analysis** — AI compares your resume against the job description to identify relevant skills and experience
-- **Cold Email Generation** — Generates personalized, professional outreach emails using LLMs
-- **Review & Edit** — Full control to review, edit, or regenerate emails before sending
-- **Scheduled Sending** — Queue emails to be sent at optimal times
-- **Application Tracking** — Track statuses: sent, replied, interview scheduled, rejected
-- **Analytics Dashboard** — Visual overview of your job search pipeline
+## Architecture (actual layout)
 
-## Architecture Overview
+| Piece | Stack | Role |
+|-------|--------|------|
+| **API Gateway** | Go (Fiber) | REST API, auth, Postgres, Redis enqueue |
+| **Worker** | Go (same repo, `cmd/worker`) | Dequeue, SMTP send, status updates |
+| **AI Service** | Python (FastAPI) | `/ai/parse-resume`, `/ai/generate-email` → OpenAI-compatible LLM |
+| **Frontend** | Next.js (App Router) | Dashboard UI |
+| **PostgreSQL** | Docker (`make up`) | Primary store |
+| **Redis** | Docker (`make up`) | Scheduled email queue |
 
-The system follows a **modular microservices architecture** with three core services:
-
-
-| Service            | Language         | Responsibility                                            |
-| ------------------ | ---------------- | --------------------------------------------------------- |
-| **API Gateway**    | Go               | REST API, auth, routing, scheduling, application tracking |
-| **AI Service**     | Python (FastAPI) | Resume parsing, JD analysis, email generation via LLM     |
-| **Worker Service** | Go               | Background job processing — sends scheduled emails        |
-
-
-Supporting infrastructure: **PostgreSQL** (persistence), **Redis** (job queue + caching), **React/Next.js** (frontend dashboard).
-
-All services are containerized with **Docker** and orchestrated via **Docker Compose**.
+**Docker today:** only **Postgres + Redis**. The app processes run locally (or you can containerize them later).
 
 ## Documentation
 
+| Document | Description |
+|----------|-------------|
+| [Current state](docs/CURRENT-STATE.md) | What is implemented vs planned |
+| [Core idea](docs/CORE-IDEA.md) | Problem, goals, vision |
+| [Architecture](docs/ARCHITECTURE.md) | Services, data flow, DB sketch |
+| [Tech stack](docs/TECH-STACK.md) | Languages, libraries, tooling |
+| [Features](docs/FEATURES.md) | P0–P2 feature list + status |
+| [Project structure](docs/PROJECT-STRUCTURE.md) | Monorepo layout |
+| [Phases](docs/PHASES.md) | Original phased roadmap |
+| [Implementation guide](docs/IMPLEMENTATION-GUIDE.md) | Build patterns and steps |
 
-| Document                                             | Description                                     |
-| ---------------------------------------------------- | ----------------------------------------------- |
-| [Core Idea](docs/CORE-IDEA.md)                       | Problem statement, goals, and vision            |
-| [Architecture](docs/ARCHITECTURE.md)                 | System design, service communication, data flow |
-| [Tech Stack](docs/TECH-STACK.md)                     | Technologies used and rationale                 |
-| [Features](docs/FEATURES.md)                         | Complete feature list with priorities           |
-| [Project Structure](docs/PROJECT-STRUCTURE.md)       | Repository layout and folder organization       |
-| [Phases](docs/PHASES.md)                             | Development roadmap broken into phases          |
-| [Implementation Guide](docs/IMPLEMENTATION-GUIDE.md) | Step-by-step build guide                        |
+## Run locally
 
-
-## Quick Start
-
-> Implementation details coming soon. See [Phases](docs/PHASES.md) for the development roadmap.
-
-## Run Locally (each service)
-
-### 0) Configure environment
+### 0) Environment
 
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` as needed (especially API keys and SMTP/email settings).
+Edit `.env`: Postgres (note **5433** on host), Redis, `AI_SERVICE_URL`, `LLM_BASE_URL` / `LLM_MODEL`, SMTP for the worker.
 
-### 1) Start infrastructure (Postgres + Redis)
+### 1) Infrastructure
 
 ```bash
 make up
 ```
 
-Ports:
 - Postgres: `localhost:5433`
 - Redis: `localhost:6379`
 
-### 2) Run database migrations
+### 2) Migrations
 
 ```bash
 make migrate-up
 ```
 
-### 3) API Gateway (Go / Fiber)
+### 3) Services (separate terminals as needed)
 
-```bash
-make run-api
-```
-
-Port:
-- `http://localhost:8080`
-
-### 4) AI Service (Python / FastAPI)
-
-One-time setup:
-
-```bash
-make setup-ai
-```
-
-Run:
-
-```bash
-make run-ai
-```
-
-Port:
-- `http://localhost:8000`
-
-### 5) Worker (Go / background sender)
-
-```bash
-make run-worker
-```
-
-### 6) Frontend (Next.js)
-
-From repo root:
-
-```bash
-cd frontend && npm install && npm run dev
-```
-
-Port:
-- `http://localhost:3000`
+| Service | Command | URL |
+|---------|---------|-----|
+| API Gateway | `make run-api` | http://localhost:8080 |
+| AI Service | `make setup-ai` once, then `make run-ai` | http://localhost:8000 |
+| Worker | `make run-worker` | — |
+| Frontend | `cd frontend && npm install && npm run dev` | http://localhost:3000 |
 
 ### Convenience
 
-`make dev` starts: Docker infra + migrations + AI service (in background) + API gateway.
-Run the frontend separately.
+`make dev` runs: Docker infra → migrations → AI service (background) → API gateway. Start the **frontend** and **worker** yourself when you need them.
 
-## Project Status
+### Quick health checks
 
-🟡 **Planning & Documentation Phase** — Architecture and documentation are being finalized before implementation begins.
+```bash
+curl -s http://localhost:8080/health
+curl -s http://localhost:8000/health
+```
+
+## Project status
+
+**Active development** — Phases 1–4 largely implemented in code; Phase 5 (tracking & analytics API/UI) and full containerization of all apps are still open.
 
 ## License
 

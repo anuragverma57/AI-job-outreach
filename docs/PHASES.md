@@ -2,6 +2,10 @@
 
 The project is broken into 6 phases. Each phase produces a working, testable increment. No phase depends on future phases, so you can stop at any point and have a functional system.
 
+## Where the code is today
+
+See **[CURRENT-STATE.md](CURRENT-STATE.md)** for an accurate checklist. In short: **Phases 1–4 are largely implemented** (with Compose limited to Postgres + Redis and apps run via Makefile); **Phases 5–6 are still open**. The unchecked items below are kept as the original roadmap — use `CURRENT-STATE.md` when they conflict with reality.
+
 ---
 
 ## Phase 1: Foundation & Infrastructure

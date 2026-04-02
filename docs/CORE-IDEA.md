@@ -78,3 +78,5 @@ A single user (the job seeker) who wants to:
 3. **Real architecture** — No shortcuts. Proper service boundaries, proper queue, proper database schema
 4. **Simplicity where possible** — Microservices where they make sense, not for the sake of it
 5. **Extensibility** — Designed so future features (LinkedIn scraping, templates, A/B testing) can plug in cleanly
+
+For what is already built in the repo versus still planned, see [CURRENT-STATE.md](CURRENT-STATE.md).

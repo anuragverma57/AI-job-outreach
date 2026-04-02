@@ -2,7 +2,7 @@
 
 ## Architecture Style: Modular Microservices
 
-The system uses a **lightweight microservices architecture** with three backend services, a frontend, and shared infrastructure. This isn't microservices for the sake of complexity — each service has a clear boundary and a distinct runtime requirement:
+The system uses a **lightweight microservices architecture** with three backend *processes* (API gateway, worker, AI service), a frontend, and shared infrastructure. In this repo the **worker ships inside the `api-gateway` Go module** (`cmd/worker`) but runs as its own process. This isn't microservices for the sake of complexity — each piece has a clear boundary:
 
 - **Go** is ideal for the API gateway and worker (concurrency, performance, static binary)
 - **Python** is ideal for AI/ML work (LLM libraries, FastAPI, ecosystem)
@@ -38,11 +38,11 @@ Splitting them lets each service use the best tool for its job and scale indepen
 ┌─────────────────┐  ┌──────────────┐  ┌───────────────────┐
 │  AI SERVICE      │  │    REDIS     │  │   POSTGRESQL      │
 │  (Python/FastAPI)│  │              │  │                   │
-│  :8000           │  │  :6379       │  │  :5432            │
+│  :8000           │  │  :6379       │  │  :5433 (host)     │
 │                  │  │              │  │                   │
 │  ├── Resume      │  │  ├── Email   │  │  ├── users        │
 │  │   parsing     │  │  │   queue   │  │  ├── resumes      │
-│  ├── JD analysis │  │  ├── Job     │  │  ├── jobs         │
+│  ├── JD in prompt│  │  ├── Job     │  │  ├── applications│
 │  ├── Email       │  │  │   queue   │  │  ├── emails       │
 │  │   generation  │  │  └── Cache   │  │  ├── schedules    │
 │  └── LLM calls   │  │              │  │  └── analytics    │
@@ -82,9 +82,9 @@ The central backend service. All client requests go through here.
 | Analytics | Aggregate stats for the dashboard |
 
 **Key Design Decisions:**
-- Uses the `Fiber` framework for HTTP routing
-- Talks to PostgreSQL via `pgx` or `sqlx`
-- Talks to Redis via `go-redis`
+- Uses the **Fiber** framework for HTTP routing
+- Talks to PostgreSQL via **pgx**
+- Talks to Redis via **go-redis** (`internal/queue`)
 - Calls AI Service over internal HTTP (service-to-service)
 - Enqueues background jobs to Redis for the Worker
 
@@ -92,27 +92,24 @@ The central backend service. All client requests go through here.
 
 Handles all AI and LLM-related work. This is a stateless service — it receives a request, processes it, and returns a result.
 
-**Why Python:** LLM libraries (OpenAI SDK, LangChain, etc.) have first-class Python support. FastAPI provides async performance with clean API design.
+**Why Python:** FastAPI, PDF parsing (`pdfplumber`), and a simple **HTTP client** to any OpenAI-compatible LLM fit this service well.
 
 | Responsibility | Details |
 |---|---|
-| Resume Parsing | Extract structured data from uploaded resume (text/PDF) |
-| JD Analysis | Parse and extract key requirements from a job description |
-| Match Analysis | Compare resume against JD, identify relevant skills/experience |
-| Email Generation | Generate a personalized cold email using the match analysis |
-| Regeneration | Re-generate with different tone/emphasis if user requests |
+| Resume Parsing | `POST /ai/parse-resume` — PDF → text (`resume_parser`) |
+| Email Generation | `POST /ai/generate-email` — prompts + LLM → structured email JSON |
+| LLM call | **httpx** `POST {LLM_BASE_URL}/chat/completions` (same shape as OpenAI Chat Completions) |
 
 **Key Design Decisions:**
-- Stateless — no database access, receives all needed data in the request
-- Uses OpenAI API (or compatible LLM) for generation
-- Prompt engineering handled here — prompts are version-controlled
-- Returns structured JSON responses
+- Stateless — no database access; gateway sends resume text and job fields in the request
+- **Configurable LLM** via `LLM_BASE_URL`, `LLM_MODEL`, optional `LLM_API_KEY` (see `.env.example`)
+- Prompts in `app/prompts/`; model must return **JSON** with `subject`, `body`, `match_score`, `key_points`, `reasoning` (parsing helpers in `app/services/llm_response.py`)
 
 ### 3. Worker Service (Go)
 
-A background process that consumes jobs from Redis queues and executes them.
+A **separate binary** from the API gateway, same repository: `api-gateway/cmd/worker`. It consumes due jobs from Redis and sends mail.
 
-**Why Go:** Long-running process with concurrent job processing. Go's goroutines make this efficient.
+**Why Go:** Long-running process; shares DB and queue config with the gateway.
 
 | Responsibility | Details |
 |---|---|
@@ -122,10 +119,9 @@ A background process that consumes jobs from Redis queues and executes them.
 | Status Updates | Update email/application status in PostgreSQL after send |
 
 **Key Design Decisions:**
-- Runs as a separate container, always on
-- Uses a ticker/cron to poll for scheduled emails
-- Processes jobs concurrently using goroutines with a worker pool
-- Dead letter queue for permanently failed jobs
+- Run via `make run-worker` (local dev) or your own process manager
+- Polls Redis on an interval (`ClaimDue`); SMTP via env (`internal/sender`)
+- Retries with caps (see worker `main.go`)
 
 ## Service Communication
 
@@ -189,15 +185,16 @@ REST over HTTP between Go and Python keeps things simple for a system this size.
 8. Worker updates application status to "applied"
 ```
 
-### Flow 3: Track Application
+### Flow 3: Track Application *(planned — Phase 5)*
 
 ```
 1. User manually updates status (got reply, interview, rejection)
-   - Or: future webhook integration auto-detects replies
-2. Frontend PATCH /api/applications/{id}/status → API Gateway
+2. Frontend PATCH /api/applications/{id}/status → API Gateway  (not implemented yet)
 3. API Gateway updates status in PostgreSQL
-4. Dashboard queries aggregate stats via GET /api/analytics
+4. Dashboard queries aggregate stats via GET /api/analytics  (not implemented yet)
 ```
+
+Application rows may still carry a `status` field from creation defaults; dedicated status-update and analytics APIs are **future work**.
 
 ## Database Design (High-Level)
 
@@ -235,6 +232,7 @@ emails
 ├── subject
 ├── body
 ├── status (draft | scheduled | sending | sent | failed)
+├── match_score, key_points (JSONB), reasoning (from AI)
 ├── scheduled_at
 ├── sent_at
 ├── retry_count
@@ -246,11 +244,11 @@ emails
 
 | Scenario | Handling |
 |---|---|
-| AI Service is down | API Gateway returns 503, frontend shows retry option |
-| Email send fails | Worker retries with exponential backoff (max 3 retries) |
-| Redis is down | API Gateway falls back to direct DB polling for scheduled jobs |
-| LLM API rate limited | AI Service queues internally, returns 429 to gateway |
-| Database connection lost | Connection pooling with automatic reconnection |
+| AI Service is down | Gateway AI calls fail; surface error to client |
+| Email send fails | Worker logs and retries per worker logic |
+| Redis is down | Scheduling / worker claims fail until Redis is up |
+| LLM slow or invalid JSON | AI service may return 500; depends on model output (see `llm_response` parsing) |
+| Database connection lost | Connection pooling; reconnect on next use |
 
 ## Security Considerations
 
@@ -258,6 +256,6 @@ emails
 - Passwords hashed with bcrypt
 - API rate limiting on the gateway
 - Environment variables for all secrets (API keys, SMTP credentials)
-- Internal services (AI, Worker) not exposed to the public network
+- In production, avoid exposing Redis and Postgres; AI/worker often on private network only
 - Input validation and sanitization on all endpoints
 - CORS configuration for frontend origin only
