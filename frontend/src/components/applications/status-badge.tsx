@@ -1,20 +1,32 @@
 import { Badge } from "@/components/ui/badge";
-import type { ApplicationStatus } from "@/types/application";
+import {
+  APPLICATION_PIPELINE_STATUS_OPTIONS,
+  type ApplicationStatus,
+} from "@/types/application";
 
-const statusConfig: Record<
+const statusVariants: Record<
   ApplicationStatus,
-  { label: string; variant: "default" | "secondary" | "destructive" | "outline" }
+  "default" | "secondary" | "destructive" | "outline"
 > = {
-  draft: { label: "Draft", variant: "secondary" },
-  applied: { label: "Applied", variant: "default" },
-  replied: { label: "Replied", variant: "outline" },
-  interview: { label: "Interview", variant: "outline" },
-  offer: { label: "Offer", variant: "default" },
-  rejected: { label: "Rejected", variant: "destructive" },
-  ghosted: { label: "Ghosted", variant: "secondary" },
+  draft: "secondary",
+  applied: "default",
+  replied: "outline",
+  interview: "outline",
+  offer: "default",
+  rejected: "destructive",
+  ghosted: "secondary",
 };
 
+const labels = APPLICATION_PIPELINE_STATUS_OPTIONS.reduce(
+  (acc, { value, label }) => {
+    acc[value] = label;
+    return acc;
+  },
+  {} as Record<ApplicationStatus, string>
+);
+
 export function StatusBadge({ status }: { status: ApplicationStatus }) {
-  const config = statusConfig[status] ?? statusConfig.draft;
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  const variant = statusVariants[status] ?? statusVariants.draft;
+  const label = labels[status] ?? labels.draft;
+  return <Badge variant={variant}>{label}</Badge>;
 }

@@ -32,3 +32,8 @@ type UpdateApplicationRequest struct {
 	JobDescription *string `json:"job_description,omitempty"`
 	JobLink        *string `json:"job_link,omitempty"`
 }
+
+// UpdateApplicationStatusRequest is the body for PATCH /api/applications/:id/status.
+type UpdateApplicationStatusRequest struct {
+	Status string `json:"status"`
+}

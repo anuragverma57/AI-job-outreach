@@ -1,236 +1,166 @@
 # Development Phases
 
-The project is broken into 6 phases. Each phase produces a working, testable increment. No phase depends on future phases, so you can stop at any point and have a functional system.
+Phased roadmap for the AI Job Outreach platform. Each phase should leave the product **demoable**. Prefer extending existing code over rewrites.
 
-## Where the code is today
-
-See **[CURRENT-STATE.md](CURRENT-STATE.md)** for an accurate checklist. In short: **Phases 1–4 are largely implemented** (with Compose limited to Postgres + Redis and apps run via Makefile); **Phases 5–6 are still open**. The unchecked items below are kept as the original roadmap — use `CURRENT-STATE.md` when they conflict with reality.
-
----
-
-## Phase 1: Foundation & Infrastructure
-
-**Goal:** Set up the project skeleton, Docker environment, database, and verify all services can start and communicate.
-
-**Duration estimate:** 2–3 days
-
-### Tasks
-
-- [ ] Initialize the monorepo structure (directories, go.mod, requirements.txt, package.json)
-- [ ] Create `docker-compose.yml` with all 6 containers (api-gateway, ai-service, worker, frontend, postgres, redis)
-- [ ] Create Dockerfiles for each custom service
-- [ ] Set up PostgreSQL with initial migration (users table)
-- [ ] Set up Redis and verify connectivity
-- [ ] API Gateway: basic HTTP server with health check endpoint (`GET /health`)
-- [ ] AI Service: basic FastAPI app with health check endpoint (`GET /health`)
-- [ ] Worker: basic Go process that connects to Redis and logs "worker started"
-- [ ] Frontend: Next.js app with a landing page
-- [ ] Verify all services start with `docker-compose up` and can reach each other
-- [ ] Create `.env.example` with all required environment variables
-- [ ] Create `Makefile` with common commands (`make up`, `make down`, `make logs`, `make migrate`)
-
-### Deliverables
-
-- All services start and respond to health checks
-- Database is running with migrations applied
-- Redis is running and accessible
-- `docker-compose up --build` works end to end
+**Current phase:** **Phase 5 — Application tracking & dashboard**  
+**Quick reality check:** See [CURRENT-STATE.md](CURRENT-STATE.md) for a short implementation snapshot.
 
 ---
 
-## Phase 2: Authentication & Resume Upload
+## Status legend
 
-**Goal:** Users can register, log in, and upload resumes. The backend handles auth properly with JWT.
-
-**Duration estimate:** 3–4 days
-
-### Tasks
-
-- [ ] Database migrations: `users` table, `resumes` table
-- [ ] API Gateway: user registration endpoint (`POST /api/auth/register`)
-- [ ] API Gateway: user login endpoint (`POST /api/auth/login`)
-- [ ] API Gateway: JWT middleware for protected routes
-- [ ] API Gateway: token refresh endpoint (`POST /api/auth/refresh`)
-- [ ] API Gateway: resume upload endpoint (`POST /api/resumes`) — accepts PDF
-- [ ] API Gateway: resume list/delete endpoints
-- [ ] AI Service: resume parsing endpoint (`POST /ai/parse-resume`) — extracts text from PDF
-- [ ] API Gateway calls AI Service to parse resume on upload, stores parsed text
-- [ ] Frontend: registration page
-- [ ] Frontend: login page with token storage
-- [ ] Frontend: resume upload page with file picker
-- [ ] Frontend: display list of uploaded resumes
-
-### Deliverables
-
-- End-to-end auth flow working (register → login → access protected routes)
-- Resume upload, parsing, and storage working
-- Frontend connected to backend for auth and resume management
+| Label | Meaning |
+|--------|--------|
+| **Done** | Implemented in repo and wired end-to-end for the main path |
+| **Partial** | Works but missing some roadmap items or uses a simpler design |
+| **Not started** | No meaningful implementation yet |
 
 ---
 
-## Phase 3: Job Applications & AI Email Generation
+## Phase 1: Foundation & infrastructure
 
-**Goal:** Users can create job applications and get AI-generated cold emails.
+**Goal:** Repo layout, local dev story, Postgres + Redis, health checks, migrations baseline.
 
-**Duration estimate:** 4–5 days
+| Item | Status | Notes |
+|------|--------|--------|
+| Monorepo layout (`api-gateway`, `ai-service`, `frontend`, docs) | **Done** | Go module, Python `requirements.txt`, Next.js |
+| PostgreSQL + Redis (Docker) | **Done** | `docker-compose.yml`: Postgres host **5433**, Redis **6379** |
+| Dockerfiles + Compose for API, AI, worker, frontend | **Not started** | Apps run on host via `Makefile` / manual commands |
+| DB migrations (users, tokens, …) | **Done** | `api-gateway/migrations/` |
+| API Gateway `/health` | **Done** | Fiber + DB check |
+| AI service `/health` | **Done** | FastAPI |
+| Worker process | **Done** | `api-gateway/cmd/worker` |
+| Frontend shell / landing | **Done** | Next.js App Router |
+| `.env.example`, `Makefile` (`up`, migrate, `run-api`, `run-ai`, `run-worker`) | **Done** | `make dev` starts infra + migrate + AI + API |
 
-### Tasks
-
-- [ ] Database migration: `applications` table, `emails` table
-- [ ] API Gateway: application CRUD endpoints
-  - `POST /api/applications` — create
-  - `GET /api/applications` — list (with filters)
-  - `GET /api/applications/:id` — detail
-  - `PUT /api/applications/:id` — update
-  - `DELETE /api/applications/:id` — delete
-- [ ] AI Service: email generation endpoint (`POST /ai/generate-email`)
-  - Accepts: resume text, job description, company name, role, tone preference
-  - Returns: subject, body, match score, key points
-- [ ] AI Service: implement prompt engineering for email generation
-  - Design system prompt for cold email generation
-  - Handle different tones (formal, friendly, concise)
-  - Ensure emails are personalized, not generic
-- [ ] API Gateway: email generation trigger (`POST /api/applications/:id/generate-email`)
-  - Fetches resume and application data
-  - Calls AI Service
-  - Stores generated email in database
-- [ ] API Gateway: email endpoints
-  - `GET /api/applications/:id/email` — get generated email
-  - `PUT /api/emails/:id` — update/edit email
-  - `POST /api/applications/:id/regenerate-email` — regenerate
-- [ ] Frontend: new application form (company, role, email, JD, link)
-- [ ] Frontend: application list page with status badges
-- [ ] Frontend: application detail page showing generated email
-- [ ] Frontend: email editor with inline editing
-- [ ] Frontend: regenerate button with tone selector
-
-### Deliverables
-
-- Full application CRUD working
-- AI generates personalized emails based on resume + JD
-- User can review, edit, and regenerate emails
-- Frontend displays the full workflow
+**Phase 1 summary:** **Partial** — production-style “all services in Compose” is optional later; local dev path is solid.
 
 ---
 
-## Phase 4: Email Scheduling & Background Worker
+## Phase 2: Authentication & resume upload
 
-**Goal:** Users can schedule emails. The worker sends them at the right time.
+**Goal:** Register, login, JWT access + refresh cookies, PDF resume upload, parsed text stored.
 
-**Duration estimate:** 3–4 days
+| Item | Status | Notes |
+|------|--------|--------|
+| Users + refresh tokens in DB | **Done** | Migrations `000001`, `000002` |
+| `POST /api/auth/register`, `login`, `refresh`, `logout` | **Done** | See `internal/handler/auth.go` |
+| JWT middleware, `GET /api/me` | **Done** | |
+| Resumes table + upload / list / delete | **Done** | `POST/GET/DELETE /api/resumes` |
+| AI `POST /ai/parse-resume` + gateway calls on upload | **Done** | OpenAI-compatible LLM via `LLM_BASE_URL` |
+| Frontend auth + resumes pages | **Done** | Login, register, resumes |
 
-### Tasks
-
-- [ ] API Gateway: schedule endpoint (`POST /api/emails/:id/schedule`)
-  - Accepts: `send_at` timestamp or relative delay
-  - Updates email status to "scheduled"
-  - Enqueues job in Redis sorted set (score = send_at unix timestamp)
-- [ ] API Gateway: cancel schedule (`DELETE /api/emails/:id/schedule`)
-- [ ] API Gateway: reschedule (`PUT /api/emails/:id/schedule`)
-- [ ] API Gateway: list scheduled emails (`GET /api/emails?status=scheduled`)
-- [ ] Worker: implement Redis queue consumer
-  - Poll sorted set for jobs where score <= now
-  - Process jobs concurrently with worker pool
-- [ ] Worker: implement email sender
-  - SMTP sender implementation
-  - Alternative: Resend API sender
-  - Configurable via environment variable
-- [ ] Worker: implement retry logic
-  - Max 3 retries with exponential backoff
-  - Move to dead letter queue after max retries
-  - Update email status (sent / failed)
-- [ ] Worker: update application status in DB after successful send
-- [ ] Frontend: schedule picker component (date/time picker + quick options)
-- [ ] Frontend: scheduled emails list view
-- [ ] Frontend: cancel/reschedule functionality
-
-### Deliverables
-
-- Emails can be scheduled and are sent automatically at the correct time
-- Failed sends are retried
-- Email and application statuses update correctly
-- Frontend provides scheduling UI
+**Phase 2 summary:** **Done**
 
 ---
 
-## Phase 5: Application Tracking & Dashboard
+## Phase 3: Job applications & AI email generation
 
-**Goal:** Users can track application progress and see analytics on a dashboard.
+**Goal:** Application CRUD, generate/regenerate email from resume + JD, edit draft in UI.
 
-**Duration estimate:** 3–4 days
+| Item | Status | Notes |
+|------|--------|--------|
+| Applications + emails tables | **Done** | Migrations `000004`, `000005` |
+| Application CRUD API | **Done** | `POST/GET/PUT/DELETE /api/applications` |
+| AI `POST /ai/generate-email` | **Done** | Tones: formal / friendly / concise |
+| Generate / regenerate / get / update email | **Done** | Routes under `/api/applications/:id/...` and `PUT /api/emails/:id` |
+| Frontend: new application, list, detail, email editor | **Done** | Scheduling UI also lives on detail flow |
 
-### Tasks
-
-- [ ] API Gateway: status update endpoint (`PATCH /api/applications/:id/status`)
-  - Valid transitions: draft → applied → replied → interview → offer/rejected/ghosted
-- [ ] API Gateway: status history (store each status change with timestamp)
-- [ ] API Gateway: analytics endpoints
-  - `GET /api/analytics/summary` — total counts by status
-  - `GET /api/analytics/timeline` — applications over time
-  - `GET /api/analytics/rates` — response rate, interview rate
-  - `GET /api/analytics/recent` — recent activity
-- [ ] Frontend: status update dropdown on application detail page
-- [ ] Frontend: dashboard page
-  - Stats cards (total applications, response rate, interviews, etc.)
-  - Status breakdown chart (pie or bar)
-  - Applications over time chart (line)
-  - Recent activity feed
-- [ ] Frontend: filter applications by status on list page
-- [ ] Frontend: search applications by company/role
-
-### Deliverables
-
-- Application status tracking with full lifecycle
-- Analytics dashboard with charts and stats
-- Filtering and search on application list
+**Phase 3 summary:** **Done** (editing **application fields** from the UI is optional; backend `PUT` exists if you add a thin client call later).
 
 ---
 
-## Phase 6: Polish, Testing & Hardening
+## Phase 4: Email scheduling & background worker
 
-**Goal:** Production-ready quality — error handling, tests, validation, documentation.
+**Goal:** Schedule sends, worker delivers via SMTP, retries, status updates.
 
-**Duration estimate:** 3–5 days
+| Item | Status | Notes |
+|------|--------|--------|
+| Schedule / cancel / reschedule | **Done** | `POST/DELETE/PUT /api/emails/:id/schedule` |
+| List by status (e.g. scheduled) | **Done** | `GET /api/emails?status=scheduled` |
+| Redis queue + gateway enqueue | **Done** | `internal/queue` |
+| Worker: claim due jobs, SMTP send | **Done** | `internal/sender/smtp.go` |
+| Retries with backoff | **Done** | Max 3 retries in `cmd/worker/main.go` |
+| On success: email **sent**, application → **applied** | **Done** | |
+| Separate dead-letter Redis queue | **Partial** | Failures → `failed` in DB; no separate DLQ key |
+| Frontend: scheduled list (`/emails`) | **Done** | |
 
-### Tasks
-
-- [ ] API Gateway: input validation on all endpoints
-- [ ] API Gateway: proper error responses (consistent error format)
-- [ ] API Gateway: rate limiting middleware
-- [ ] API Gateway: request logging with structured logs
-- [ ] API Gateway: unit tests for services and handlers
-- [ ] API Gateway: integration tests for key flows
-- [ ] AI Service: unit tests for parser, matcher, generator
-- [ ] AI Service: mock LLM responses for testing
-- [ ] Worker: unit tests for consumer and sender
-- [ ] Worker: graceful shutdown handling
-- [ ] Frontend: loading states, error states, empty states
-- [ ] Frontend: responsive design review
-- [ ] Frontend: toast notifications for actions
-- [ ] Docker: production-optimized Dockerfiles (multi-stage builds)
-- [ ] Documentation: API documentation (OpenAPI/Swagger)
-- [ ] Documentation: update README with final setup instructions
-- [ ] Security review: ensure no secrets in code, proper CORS, input sanitization
-
-### Deliverables
-
-- Comprehensive test coverage on critical paths
-- Polished UI with proper error handling
-- Production-ready Docker setup
-- Complete documentation
+**Phase 4 summary:** **Done** (DLQ can stay as DB status unless you outgrow it).
 
 ---
 
-## Phase Summary
+## Phase 5: Application tracking & dashboard (current)
 
-| Phase | Focus | Est. Duration |
-|-------|-------|---------------|
-| 1 | Foundation & Infrastructure | 2–3 days |
-| 2 | Authentication & Resume Upload | 3–4 days |
-| 3 | Job Applications & AI Email Generation | 4–5 days |
-| 4 | Email Scheduling & Background Worker | 3–4 days |
-| 5 | Application Tracking & Dashboard | 3–4 days |
-| 6 | Polish, Testing & Hardening | 3–5 days |
-| **Total** | | **18–25 days** |
+**Goal:** User can move applications through the pipeline and see real stats — not placeholder zeros.
 
-Each phase builds on the previous one. At the end of each phase, the system is functional and demonstrable.
+| Item | Status | Notes |
+|------|--------|--------|
+| `status` column on `applications` | **Done** | Default `draft`; worker sets `applied` after send |
+| User-facing **status update** API (validated transitions) | **Not started** | `UpdateApplicationRequest` has no `status`; no `PATCH .../status` |
+| Status **history** table / audit | **Not started** | |
+| Analytics API (`/api/analytics/...` or minimal `/api/stats`) | **Not started** | |
+| Dashboard: real numbers from API | **Not started** | `/dashboard` still hard-coded `0` |
+| `/analytics` route | **Not started** | Sidebar links to it → 404 today |
+| List filters (status, search) | **Not started** | Nice for MVP+ |
+
+**Phase 5 summary:** **In progress** — schema and badges exist; **product value** (track replies/interviews + dashboard) is still to build.
+
+---
+
+## Phase 6: Polish, testing & hardening
+
+**Goal:** Tests, consistent errors, rate limits, OpenAPI, production Docker, UX polish.
+
+| Item | Status | Notes |
+|------|--------|--------|
+| Automated tests (Go / Python / frontend) | **Not started** | |
+| Rate limiting, structured logging | **Not started** | Basic Fiber logger exists |
+| OpenAPI / Swagger | **Not started** | |
+| Multi-stage Dockerfiles, full Compose stack | **Not started** | |
+| Toasts, empty/error states pass | **Partial** | Some pages handle errors; not uniform |
+
+**Phase 6 summary:** **Not started**
+
+---
+
+## Phase summary table
+
+| Phase | Focus | Status |
+|-------|--------|--------|
+| 1 | Foundation & infrastructure | **Partial** (dev-ready; full containerization later) |
+| 2 | Auth & resumes | **Done** |
+| 3 | Applications & AI emails | **Done** |
+| 4 | Scheduling & worker | **Done** |
+| 5 | Tracking & dashboard | **In progress** ← **you are here** |
+| 6 | Polish & hardening | **Not started** |
+
+---
+
+## MVP scope (recommended)
+
+**Must ship for a credible MVP**
+
+1. **Status updates** — API + UI so users can record replied / interview / offer / rejected (and keep `applied` from send).
+2. **One analytics read model** — e.g. `GET /api/analytics/summary` (counts by status + emails sent) without overbuilding timeline charts on day one.
+3. **Dashboard + fix `/analytics`** — either implement the page or point the nav to `/dashboard` until Analytics exists.
+
+**Defer (post-MVP)**
+
+- Full status history timeline UI
+- Advanced charts, search, and rate limiting (bring in during Phase 6 as needed)
+- Running all services in Docker if local `Makefile` workflow is enough for you
+
+---
+
+## Original time estimates (rough)
+
+| Phase | Est. duration |
+|-------|----------------|
+| 1 | 2–3 days |
+| 2 | 3–4 days |
+| 3 | 4–5 days |
+| 4 | 3–4 days |
+| 5 | 3–4 days |
+| 6 | 3–5 days |
+
+Estimates assumed greenfield; much of 1–4 is already done — focus remaining time on **Phase 5** then **Phase 6** slices you actually need.

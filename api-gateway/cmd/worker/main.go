@@ -118,7 +118,9 @@ func processEmail(
 		log.Printf("worker: failed to mark email %s as sent: %v", emailID, err)
 	}
 
-	_ = appRepo.UpdateStatus(ctx, app.ID, "applied")
+	if _, err := appRepo.UpdateStatus(ctx, app.ID, "applied"); err != nil {
+		log.Printf("worker: failed to set application %s to applied: %v", app.ID, err)
+	}
 
 	log.Printf("worker: email %s sent to %s, application %s -> applied", emailID, app.RecruiterEmail, app.ID)
 }

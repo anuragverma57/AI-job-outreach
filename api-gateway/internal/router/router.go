@@ -71,6 +71,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	applications := api.Group("/applications")
 	applications.Post("/", appHandler.Create)
 	applications.Get("/", appHandler.List)
+	applications.Patch("/:id/status", appHandler.UpdateStatus)
 	applications.Get("/:id", appHandler.GetByID)
 	applications.Put("/:id", appHandler.Update)
 	applications.Delete("/:id", appHandler.Delete)

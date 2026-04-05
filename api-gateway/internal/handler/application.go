@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 
 	"github.com/anuragverma/ai-job-outreach/api-gateway/internal/model"
@@ -9,8 +10,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// applicationService is implemented by *service.ApplicationService; extracted for focused tests.
+type applicationService interface {
+	Create(ctx context.Context, userID string, req model.CreateApplicationRequest) (*model.Application, error)
+	List(ctx context.Context, userID string) ([]model.Application, error)
+	GetByID(ctx context.Context, userID, appID string) (*model.Application, error)
+	Update(ctx context.Context, userID, appID string, req model.UpdateApplicationRequest) (*model.Application, error)
+	Delete(ctx context.Context, userID, appID string) error
+	UpdateStatus(ctx context.Context, userID, appID string, req model.UpdateApplicationStatusRequest) (*model.Application, error)
+}
+
 type ApplicationHandler struct {
-	appService *service.ApplicationService
+	appService applicationService
 }
 
 func NewApplicationHandler(appService *service.ApplicationService) *ApplicationHandler {
@@ -82,6 +93,23 @@ func (h *ApplicationHandler) Delete(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "application deleted"})
+}
+
+func (h *ApplicationHandler) UpdateStatus(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
+	appID := c.Params("id")
+
+	var req model.UpdateApplicationStatusRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	app, err := h.appService.UpdateStatus(c.Context(), userID, appID, req)
+	if err != nil {
+		return h.handleError(c, err)
+	}
+
+	return c.JSON(fiber.Map{"application": app})
 }
 
 func (h *ApplicationHandler) handleError(c *fiber.Ctx, err error) error {

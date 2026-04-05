@@ -109,12 +109,21 @@ func (r *ApplicationRepository) Update(ctx context.Context, id string, req *mode
 	return app, nil
 }
 
-func (r *ApplicationRepository) UpdateStatus(ctx context.Context, id, status string) error {
-	_, err := r.db.Exec(ctx,
-		`UPDATE applications SET status = $2, updated_at = NOW() WHERE id = $1`,
+func (r *ApplicationRepository) UpdateStatus(ctx context.Context, id, status string) (*model.Application, error) {
+	app := &model.Application{}
+	err := r.db.QueryRow(ctx,
+		`UPDATE applications SET status = $2, updated_at = NOW() WHERE id = $1
+		 RETURNING id, user_id, resume_id, company_name, role, recruiter_email, job_description, job_link, status, created_at, updated_at`,
 		id, status,
-	)
-	return err
+	).Scan(&app.ID, &app.UserID, &app.ResumeID, &app.CompanyName, &app.Role,
+		&app.RecruiterEmail, &app.JobDescription, &app.JobLink, &app.Status, &app.CreatedAt, &app.UpdatedAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrApplicationNotFound
+		}
+		return nil, err
+	}
+	return app, nil
 }
 
 func (r *ApplicationRepository) Delete(ctx context.Context, id string) error {

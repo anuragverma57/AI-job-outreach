@@ -9,6 +9,7 @@ import type {
   ApplicationResponse,
   ApplicationListResponse,
   CreateApplicationRequest,
+  ApplicationStatus,
 } from "@/types/application";
 import type {
   EmailResponse,
@@ -132,6 +133,16 @@ class ApiClient {
 
   async getApplication(id: string): Promise<ApplicationResponse> {
     return this.request<ApplicationResponse>(`/api/applications/${id}`);
+  }
+
+  async updateApplicationStatus(
+    id: string,
+    status: ApplicationStatus
+  ): Promise<ApplicationResponse> {
+    return this.request<ApplicationResponse>(`/api/applications/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
   }
 
   async deleteApplication(id: string): Promise<void> {

@@ -88,3 +88,27 @@ func (s *ApplicationService) Delete(ctx context.Context, userID, appID string) e
 	}
 	return s.appRepo.Delete(ctx, appID)
 }
+
+// UpdateStatus sets pipeline status (LOV) for a user-owned application (Option A: any LOV from any state).
+func (s *ApplicationService) UpdateStatus(ctx context.Context, userID, appID string, req model.UpdateApplicationStatusRequest) (*model.Application, error) {
+	if err := model.ValidateApplicationPipelineStatus(req.Status); err != nil {
+		switch {
+		case errors.Is(err, model.ErrApplicationStatusRequired):
+			return nil, fmt.Errorf("%w: status is required", ErrInvalidInput)
+		case errors.Is(err, model.ErrInvalidApplicationPipelineStatus):
+			return nil, fmt.Errorf("%w: invalid status", ErrInvalidInput)
+		default:
+			return nil, err
+		}
+	}
+
+	existing, err := s.appRepo.FindByID(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	if existing.UserID != userID {
+		return nil, ErrApplicationNotOwned
+	}
+
+	return s.appRepo.UpdateStatus(ctx, appID, req.Status)
+}

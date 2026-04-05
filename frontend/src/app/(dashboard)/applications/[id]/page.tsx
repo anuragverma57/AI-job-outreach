@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { ApplicationStatusSelect } from "@/components/applications/application-status-select";
 import { StatusBadge } from "@/components/applications/status-badge";
 import { api, ApiClientError } from "@/lib/api";
 import type { Application } from "@/types/application";
@@ -108,11 +109,16 @@ export default function ApplicationDetailPage() {
             <ArrowLeft className="size-4" />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
               <h1 className="text-2xl font-semibold tracking-tight">
                 {application.company_name}
               </h1>
               <StatusBadge status={application.status} />
+              <ApplicationStatusSelect
+                applicationId={application.id}
+                status={application.status}
+                onUpdated={setApplication}
+              />
             </div>
             <p className="text-sm text-muted-foreground">{application.role}</p>
           </div>
