@@ -1,9 +1,12 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
+import { useAnalyticsSummary } from "@/hooks/use-analytics-summary";
+import { AnalyticsSummaryCards } from "@/components/analytics/analytics-summary-cards";
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  const { summary, isLoading, error } = useAnalyticsSummary();
 
   return (
     <div className="space-y-6">
@@ -16,22 +19,19 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Total Applications", value: "0" },
-          { label: "Emails Sent", value: "0" },
-          { label: "Replies", value: "0" },
-          { label: "Interviews", value: "0" },
-        ].map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-xl border bg-card p-5 text-card-foreground"
-          >
-            <p className="text-sm text-muted-foreground">{stat.label}</p>
-            <p className="mt-1 text-2xl font-semibold">{stat.value}</p>
-          </div>
-        ))}
-      </div>
+      {error ? (
+        <div className="rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+        </div>
+      ) : (
+        <AnalyticsSummaryCards summary={summary} />
+      )}
 
       <div className="rounded-xl border bg-card p-6 text-card-foreground">
         <p className="text-sm text-muted-foreground">

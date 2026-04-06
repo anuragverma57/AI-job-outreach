@@ -36,12 +36,14 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	resumeRepo := repository.NewResumeRepository(db)
 	appRepo := repository.NewApplicationRepository(db)
 	emailRepo := repository.NewEmailRepository(db)
+	analyticsRepo := repository.NewAnalyticsRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, tokenRepo, cfg)
 	resumeService := service.NewResumeService(resumeRepo, cfg.UploadDir, aiClient)
 	appService := service.NewApplicationService(appRepo, resumeRepo)
 	emailService := service.NewEmailService(emailRepo, appRepo, resumeRepo, aiClient, rq)
+	analyticsService := service.NewAnalyticsService(analyticsRepo)
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(db)
@@ -49,6 +51,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	resumeHandler := handler.NewResumeHandler(resumeService)
 	appHandler := handler.NewApplicationHandler(appService)
 	emailHandler := handler.NewEmailHandler(emailService)
+	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 
 	// Public routes
 	app.Get("/health", healthHandler.Check)
@@ -62,6 +65,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	// Protected routes
 	api := app.Group("/api", appMiddleware.AuthRequired(authService))
 	api.Get("/me", authHandler.Me)
+	api.Get("/analytics/summary", analyticsHandler.Summary)
 
 	resumes := api.Group("/resumes")
 	resumes.Post("/", resumeHandler.Upload)

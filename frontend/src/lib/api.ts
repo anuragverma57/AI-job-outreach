@@ -17,6 +17,7 @@ import type {
   UpdateEmailRequest,
   ScheduledEmailListResponse,
 } from "@/types/email";
+import type { AnalyticsSummaryResponse } from "@/types/analytics";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -147,6 +148,12 @@ class ApiClient {
 
   async deleteApplication(id: string): Promise<void> {
     await this.request(`/api/applications/${id}`, { method: "DELETE" });
+  }
+
+  // --- Analytics ---
+
+  async getAnalyticsSummary(): Promise<AnalyticsSummaryResponse> {
+    return this.request<AnalyticsSummaryResponse>("/api/analytics/summary");
   }
 
   // --- Email endpoints ---
