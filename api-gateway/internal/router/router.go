@@ -44,6 +44,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	appService := service.NewApplicationService(appRepo, resumeRepo)
 	emailService := service.NewEmailService(emailRepo, appRepo, resumeRepo, aiClient, rq)
 	analyticsService := service.NewAnalyticsService(analyticsRepo)
+	smartApplyService := service.NewSmartApplyService(appRepo, emailRepo, resumeRepo, aiClient)
 
 	// Handlers
 	healthHandler := handler.NewHealthHandler(db)
@@ -52,6 +53,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	appHandler := handler.NewApplicationHandler(appService)
 	emailHandler := handler.NewEmailHandler(emailService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
+	smartApplyHandler := handler.NewSmartApplyHandler(smartApplyService)
 
 	// Public routes
 	app.Get("/health", healthHandler.Check)
@@ -74,6 +76,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 
 	applications := api.Group("/applications")
 	applications.Post("/", appHandler.Create)
+	applications.Post("/smart-apply", smartApplyHandler.Create)
 	applications.Get("/", appHandler.List)
 	applications.Patch("/:id/status", appHandler.UpdateStatus)
 	applications.Get("/:id", appHandler.GetByID)

@@ -10,6 +10,7 @@ import type {
   ApplicationListResponse,
   CreateApplicationRequest,
   ApplicationStatus,
+  UpdateApplicationRequest,
 } from "@/types/application";
 import type {
   EmailResponse,
@@ -18,6 +19,7 @@ import type {
   ScheduledEmailListResponse,
 } from "@/types/email";
 import type { AnalyticsSummaryResponse } from "@/types/analytics";
+import type { SmartApplyResponse } from "@/types/smart-apply";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
@@ -134,6 +136,23 @@ class ApiClient {
 
   async getApplication(id: string): Promise<ApplicationResponse> {
     return this.request<ApplicationResponse>(`/api/applications/${id}`);
+  }
+
+  async smartApply(rawText: string): Promise<SmartApplyResponse> {
+    return this.request<SmartApplyResponse>("/api/applications/smart-apply", {
+      method: "POST",
+      body: JSON.stringify({ raw_text: rawText }),
+    });
+  }
+
+  async updateApplication(
+    id: string,
+    data: UpdateApplicationRequest
+  ): Promise<ApplicationResponse> {
+    return this.request<ApplicationResponse>(`/api/applications/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
   }
 
   async updateApplicationStatus(

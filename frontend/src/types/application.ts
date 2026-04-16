@@ -44,6 +44,14 @@ export interface CreateApplicationRequest {
   resume_id?: string;
 }
 
+export interface UpdateApplicationRequest {
+  company_name?: string;
+  role?: string;
+  recruiter_email?: string;
+  job_description?: string;
+  job_link?: string;
+}
+
 export interface ApplicationResponse {
   application: Application;
 }
