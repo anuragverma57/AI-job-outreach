@@ -38,12 +38,9 @@ An intelligent job application automation system that helps candidates streamlin
 |----------|-------------|
 | [Current state](docs/CURRENT-STATE.md) | What is implemented vs planned |
 | [Core idea](docs/CORE-IDEA.md) | Problem, goals, vision |
-| [Architecture](docs/ARCHITECTURE.md) | Services, data flow, DB sketch |
-| [Tech stack](docs/TECH-STACK.md) | Languages, libraries, tooling |
-| [Features](docs/FEATURES.md) | P0–P2 feature list + status |
-| [Project structure](docs/PROJECT-STRUCTURE.md) | Monorepo layout |
-| [Phases](docs/PHASES.md) | Original phased roadmap |
-| [Implementation guide](docs/IMPLEMENTATION-GUIDE.md) | Build patterns and steps |
+| [Architecture](docs/ARCHITECTURE.md) | Services, data flow, DB sketch, stack snapshot, repo map |
+| [Phases](docs/PHASES.md) | Current roadmap with done/in-progress/pending |
+| [Implementation guide](docs/IMPLEMENTATION-GUIDE.md) | Build patterns + implementation playbooks (status/analytics) |
 
 ## Run locally
 

@@ -7,7 +7,7 @@ export type ApplicationStatus =
   | "rejected"
   | "ghosted";
 
-/** Canonical pipeline LOV — string values must match api-gateway validation (see IMPLEMENTATION-GUIDE-PIPELINE-STATUS.md). */
+/** Canonical pipeline LOV — string values must match api-gateway validation (see docs/IMPLEMENTATION-GUIDE.md Appendix A). */
 export const APPLICATION_PIPELINE_STATUS_OPTIONS: {
   value: ApplicationStatus;
   label: string;

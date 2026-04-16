@@ -581,3 +581,81 @@ Build and test the backend API first using Postman or `curl`. Once the API is so
 5. **Don't use polling for real-time updates** — start with manual refresh, add WebSockets later if needed
 6. **Don't over-engineer early** — get the happy path working first, then add error handling and edge cases
 7. **Don't forget database indexes** — add indexes on foreign keys and frequently queried columns from the start
+
+---
+
+## Appendix A: Pipeline status (LOV) playbook
+
+Use this as the default pattern for user-managed opportunity tracking.
+
+### Canonical statuses
+
+- `draft`
+- `applied`
+- `replied`
+- `interview`
+- `offer`
+- `rejected`
+- `ghosted`
+
+### API contract
+
+- `PATCH /api/applications/:id/status`
+- Request: `{ "status": "<one-of-lov>" }`
+- Response: `{ "application": { ...updated row... } }`
+- Validation: reject unknown statuses with `400`
+- Auth/ownership: same ownership checks as application CRUD
+
+### Responsibility split
+
+- **Backend**
+  - Validate status against canonical LOV
+  - Enforce user ownership
+  - Persist update and return updated application
+  - Keep worker compatibility (worker may still set `applied`)
+- **Frontend**
+  - Add status update control in application detail
+  - Keep `ApplicationStatus` union aligned with backend LOV
+  - Show loading/error state and refresh badge values
+- **Integration**
+  - Confirm one shared JSON contract and status keys
+
+---
+
+## Appendix B: Analytics summary playbook
+
+Use this for the first analytics iteration. Keep it DB-driven and simple.
+
+### API contract
+
+- `GET /api/analytics/summary` (authenticated)
+- Recommended response shape:
+  - `total_applications`
+  - `applications_by_status` (always include all status keys, zero-filled)
+  - `emails` (`sent`, `scheduled`, `failed`, optional `draft`)
+  - optional `rates` (`reply_rate`, `interview_rate`)
+
+### Minimum query model
+
+- Applications by user:
+  - `SELECT status, COUNT(*) FROM applications WHERE user_id = $1 GROUP BY status`
+- Emails by user (joined through applications):
+  - `SELECT e.status, COUNT(*) FROM emails e INNER JOIN applications a ON a.id = e.application_id WHERE a.user_id = $1 GROUP BY e.status`
+
+### Responsibility split
+
+- **Backend**
+  - Build `summary` endpoint with user-scoped aggregation
+  - Zero-fill missing status keys before returning JSON
+  - Keep error format consistent with current handlers
+- **Frontend**
+  - Add `/analytics` page (to avoid dead sidebar route)
+  - Replace dashboard placeholder numbers with live summary data
+  - Add loading/error/empty states
+- **Integration**
+  - Reuse one endpoint for both dashboard and analytics page
+
+### Scope guardrails
+
+- In scope: summary cards + status breakdown
+- Out of scope (next step): timeline charts, inbox/Gmail sync, new analytics tables

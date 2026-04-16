@@ -1,6 +1,6 @@
 import type { ApplicationStatus } from "./application";
 
-/** Email aggregate counts from GET /api/analytics/summary (see IMPLEMENTATION-GUIDE-ANALYTICS.md). */
+/** Email aggregate counts from GET /api/analytics/summary (see docs/IMPLEMENTATION-GUIDE.md Appendix B). */
 export interface AnalyticsEmailsSummary {
   sent: number;
   scheduled: number;

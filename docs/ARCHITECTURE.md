@@ -259,3 +259,36 @@ emails
 - In production, avoid exposing Redis and Postgres; AI/worker often on private network only
 - Input validation and sanitization on all endpoints
 - CORS configuration for frontend origin only
+
+---
+
+## Quick tech stack snapshot
+
+| Layer | Technology |
+|---|---|
+| API gateway + worker | Go (Fiber, pgx, go-redis) |
+| AI service | Python FastAPI (httpx + OpenAI-compatible LLM API) |
+| Frontend | Next.js (App Router) + TypeScript |
+| Database | PostgreSQL |
+| Queue | Redis sorted-set queue |
+| Local infra | Docker Compose for Postgres + Redis |
+
+---
+
+## Quick repo map
+
+```text
+api-gateway/
+  cmd/server           # API entrypoint
+  cmd/worker           # Worker entrypoint
+  internal/{handler,service,repository,model,queue,sender,router,...}
+  migrations/
+
+ai-service/
+  app/{routers,services,prompts,models}
+
+frontend/
+  src/app/(auth)
+  src/app/(dashboard)
+  src/{components,hooks,lib,types}
+```
