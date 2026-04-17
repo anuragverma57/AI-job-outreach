@@ -113,9 +113,46 @@ From Smart Apply processing:
 
 ---
 
-## 8) API design (MVP)
+## 8) LLM server vs this repo’s AI service (read this to avoid 422)
 
-## Endpoint
+Your **remote machine** (e.g. `http://192.168.29.231:8000`) exposes **OpenAI-style** routes such as:
+
+- `POST /v1/chat/completions` (JSON body, `stream` true/false)
+- `POST /chat?prompt=...&stream=...` (query params)
+
+Those curls are for **testing the LLM only**. They are **not** the Smart Apply contract.
+
+This repo’s **Python AI service** (`make run-ai`, usually `http://localhost:8000`) exposes **app routes** under `/ai/...`, including:
+
+- `POST /ai/smart-apply/extract-match` — expects **`raw_text` + `resumes`** (see below).
+
+`422 Unprocessable Entity` on `/ai/smart-apply/extract-match` almost always means **request body validation failed** (e.g. missing `resumes`, wrong JSON shape, or not JSON). It does **not** mean the LLM is down.
+
+### Correct curl — `extract-match` (call the Python AI service, not the LLM host)
+
+Replace UUIDs and text with real values:
+
+```bash
+curl -sS -X POST "http://127.0.0.1:8000/ai/smart-apply/extract-match" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "raw_text": "ACME Corp is hiring a Backend Engineer. Apply at careers@acme.com. We use Go and Postgres.",
+    "resumes": [
+      {
+        "resume_id": "00000000-0000-0000-0000-000000000001",
+        "parsed_text": "Jane Doe. Backend engineer. Go, PostgreSQL, 5 years."
+      }
+    ]
+  }'
+```
+
+The **normal product path** is: browser → **Go gateway** `POST /api/applications/smart-apply` with `{ "raw_text": "..." }` only; the gateway loads resumes from Postgres and calls **`/ai/smart-apply/extract-match`** with the full body.
+
+---
+
+## 9) API design (MVP) — gateway
+
+### Endpoint
 
 `POST /api/applications/smart-apply`
 
@@ -162,7 +199,7 @@ From Smart Apply processing:
 
 ---
 
-## 9) Edge cases and fallbacks
+## 10) Edge cases and fallbacks
 
 - No recruiter email found -> allow manual entry in review.
 - No job link found -> keep null, continue.
@@ -172,7 +209,7 @@ From Smart Apply processing:
 
 ---
 
-## 10) MVP scope vs future
+## 11) MVP scope vs future
 
 ### MVP (now)
 
@@ -191,7 +228,7 @@ From Smart Apply processing:
 
 ---
 
-## 11) Agent assignment prompts
+## 12) Agent assignment prompts
 
 ### Backend agent prompt
 

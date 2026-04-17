@@ -41,6 +41,8 @@ An intelligent job application automation system that helps candidates streamlin
 | [Architecture](docs/ARCHITECTURE.md) | Services, data flow, DB sketch, stack snapshot, repo map |
 | [Phases](docs/PHASES.md) | Current roadmap with done/in-progress/pending |
 | [Implementation guide](docs/IMPLEMENTATION-GUIDE.md) | Build patterns + implementation playbooks (status/analytics) |
+| [Smart Apply spec](docs/FEATURE.md) | Smart Apply feature — flow, API, agent prompts |
+| [LLM streaming guide](docs/IMPLEMENTATION-GUIDE-LLM-STREAMING.md) | SSE streaming, reliability notes, frontend/backend ownership |
 
 ## Run locally
 

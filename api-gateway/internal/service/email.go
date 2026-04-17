@@ -48,13 +48,43 @@ func NewEmailService(
 	}
 }
 
-func (s *EmailService) GenerateEmail(ctx context.Context, userID, applicationID, tone string) (*model.Email, error) {
+func (s *EmailService) GenerateEmail(ctx context.Context, userID, applicationID string, req model.GenerateEmailRequest) (*model.Email, error) {
 	app, err := s.appRepo.FindByID(ctx, applicationID)
 	if err != nil {
 		return nil, err
 	}
 	if app.UserID != userID {
 		return nil, ErrApplicationNotOwned
+	}
+
+	if req.Tone == "" {
+		req.Tone = "formal"
+	}
+
+	// Persist a streamed generation result without a second LLM call.
+	if req.Draft != nil {
+		if req.Draft.Subject == "" || req.Draft.Body == "" {
+			return nil, fmt.Errorf("%w: draft subject and body are required", ErrInvalidInput)
+		}
+		kp := req.Draft.KeyPoints
+		if kp == nil {
+			kp = []string{}
+		}
+		keyPointsJSON, err := json.Marshal(kp)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal key points: %w", err)
+		}
+		ms := req.Draft.MatchScore
+		reasoning := req.Draft.Reasoning
+		email := &model.Email{
+			ApplicationID: applicationID,
+			Subject:       req.Draft.Subject,
+			Body:          req.Draft.Body,
+			MatchScore:    &ms,
+			KeyPoints:     keyPointsJSON,
+			Reasoning:     &reasoning,
+		}
+		return s.emailRepo.CreateOrReplace(ctx, email)
 	}
 
 	if app.ResumeID == nil || *app.ResumeID == "" {
@@ -70,10 +100,6 @@ func (s *EmailService) GenerateEmail(ctx context.Context, userID, applicationID,
 		return nil, ErrResumeParsedTextEmpty
 	}
 
-	if tone == "" {
-		tone = "formal"
-	}
-
 	aiReq := &client.GenerateEmailRequest{
 		ResumeText:     *resume.ParsedText,
 		JobDescription: app.JobDescription,
@@ -81,7 +107,7 @@ func (s *EmailService) GenerateEmail(ctx context.Context, userID, applicationID,
 		Role:           app.Role,
 		RecruiterEmail: app.RecruiterEmail,
 		JobLink:        app.JobLink,
-		Tone:           tone,
+		Tone:           req.Tone,
 	}
 
 	aiResp, err := s.aiClient.GenerateEmail(aiReq)

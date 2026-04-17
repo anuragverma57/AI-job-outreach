@@ -54,6 +54,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	emailHandler := handler.NewEmailHandler(emailService)
 	analyticsHandler := handler.NewAnalyticsHandler(analyticsService)
 	smartApplyHandler := handler.NewSmartApplyHandler(smartApplyService)
+	aiStreamProxyHandler := handler.NewAIStreamProxyHandler(cfg.AIServiceURL)
 
 	// Public routes
 	app.Get("/health", healthHandler.Check)
@@ -68,6 +69,7 @@ func Setup(app *fiber.App, db *pgxpool.Pool, rq *queue.RedisQueue, cfg *config.C
 	api := app.Group("/api", appMiddleware.AuthRequired(authService))
 	api.Get("/me", authHandler.Me)
 	api.Get("/analytics/summary", analyticsHandler.Summary)
+	api.Post("/ai/generate-email/stream", aiStreamProxyHandler.ProxyGenerateEmailStream)
 
 	resumes := api.Group("/resumes")
 	resumes.Post("/", resumeHandler.Upload)

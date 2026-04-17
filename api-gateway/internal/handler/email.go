@@ -29,7 +29,7 @@ func (h *EmailHandler) GenerateEmail(c *fiber.Ctx) error {
 		req.Tone = "formal"
 	}
 
-	email, err := h.emailService.GenerateEmail(c.Context(), userID, appID, req.Tone)
+	email, err := h.emailService.GenerateEmail(c.Context(), userID, appID, req)
 	if err != nil {
 		return h.handleError(c, err)
 	}

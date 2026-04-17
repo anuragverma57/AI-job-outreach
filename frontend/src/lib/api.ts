@@ -15,13 +15,14 @@ import type {
 import type {
   EmailResponse,
   EmailTone,
+  GeneratedEmailDraft,
   UpdateEmailRequest,
   ScheduledEmailListResponse,
 } from "@/types/email";
 import type { AnalyticsSummaryResponse } from "@/types/analytics";
 import type { SmartApplyResponse } from "@/types/smart-apply";
 
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 class ApiClient {
@@ -179,11 +180,16 @@ class ApiClient {
 
   async generateEmail(
     applicationId: string,
-    tone: EmailTone
+    tone: EmailTone,
+    draft?: GeneratedEmailDraft
   ): Promise<EmailResponse> {
+    const body: { tone: EmailTone; draft?: GeneratedEmailDraft } = { tone };
+    if (draft) {
+      body.draft = draft;
+    }
     return this.request<EmailResponse>(
       `/api/applications/${applicationId}/generate-email`,
-      { method: "POST", body: JSON.stringify({ tone }) }
+      { method: "POST", body: JSON.stringify(body) }
     );
   }
 
@@ -195,11 +201,16 @@ class ApiClient {
 
   async regenerateEmail(
     applicationId: string,
-    tone: EmailTone
+    tone: EmailTone,
+    draft?: GeneratedEmailDraft
   ): Promise<EmailResponse> {
+    const body: { tone: EmailTone; draft?: GeneratedEmailDraft } = { tone };
+    if (draft) {
+      body.draft = draft;
+    }
     return this.request<EmailResponse>(
       `/api/applications/${applicationId}/regenerate-email`,
-      { method: "POST", body: JSON.stringify({ tone }) }
+      { method: "POST", body: JSON.stringify(body) }
     );
   }
 

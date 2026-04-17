@@ -21,8 +21,18 @@ type Email struct {
 	UpdatedAt     time.Time       `json:"updated_at"`
 }
 
+// GenerateEmailDraft persists a client-generated email (e.g. after SSE streaming) without calling the LLM again.
+type GenerateEmailDraft struct {
+	Subject     string   `json:"subject"`
+	Body        string   `json:"body"`
+	MatchScore  float64  `json:"match_score"`
+	KeyPoints   []string `json:"key_points"`
+	Reasoning   string   `json:"reasoning"`
+}
+
 type GenerateEmailRequest struct {
-	Tone string `json:"tone"`
+	Tone  string               `json:"tone"`
+	Draft *GenerateEmailDraft  `json:"draft,omitempty"`
 }
 
 type UpdateEmailRequest struct {

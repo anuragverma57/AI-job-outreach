@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -23,8 +23,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ApplicationStatusSelect } from "@/components/applications/application-status-select";
 import { StatusBadge } from "@/components/applications/status-badge";
-import { api, ApiClientError } from "@/lib/api";
+import { api, API_BASE_URL, ApiClientError } from "@/lib/api";
+import { streamGenerateEmail } from "@/lib/generate-email-stream";
 import type { Application } from "@/types/application";
+import type { Resume } from "@/types/resume";
 import type { Email, EmailTone } from "@/types/email";
 
 const toneOptions: { value: EmailTone; label: string }[] = [
@@ -167,7 +169,7 @@ export default function ApplicationDetailPage() {
         </div>
 
         <EmailPanel
-          applicationId={application.id}
+          application={application}
           email={email}
           onEmailUpdate={setEmail}
         />
@@ -180,22 +182,62 @@ export default function ApplicationDetailPage() {
 // Email Panel
 // ---------------------------------------------------------------------------
 
+type StreamPhase =
+  | "idle"
+  | "connecting"
+  | "streaming"
+  | "persisting"
+  | "error";
+
 function EmailPanel({
-  applicationId,
+  application,
   email,
   onEmailUpdate,
 }: {
-  applicationId: string;
+  application: Application;
   email: Email | null;
   onEmailUpdate: (email: Email) => void;
 }) {
   const [tone, setTone] = useState<EmailTone>("formal");
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [resumes, setResumes] = useState<Resume[]>([]);
+  const [resumesLoading, setResumesLoading] = useState(true);
+  const [streamPhase, setStreamPhase] = useState<StreamPhase>("idle");
+  const [streamPreview, setStreamPreview] = useState("");
+  const [isFallbackGenerating, setIsFallbackGenerating] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [subject, setSubject] = useState(email?.subject ?? "");
   const [body, setBody] = useState(email?.body ?? "");
   const [error, setError] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const streamAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadResumes() {
+      try {
+        const res = await api.listResumes();
+        if (!cancelled) {
+          setResumes(res.resumes);
+        }
+      } catch {
+        /* non-blocking */
+      } finally {
+        if (!cancelled) {
+          setResumesLoading(false);
+        }
+      }
+    }
+    loadResumes();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (email) {
@@ -204,13 +246,96 @@ function EmailPanel({
     }
   }, [email]);
 
-  async function handleGenerate() {
-    setIsGenerating(true);
+  const isStreamBusy =
+    streamPhase === "connecting" ||
+    streamPhase === "streaming" ||
+    streamPhase === "persisting";
+  const isBusy = isStreamBusy || isFallbackGenerating;
+
+  function cancelStream() {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    setStreamPhase("idle");
+    setStreamPreview("");
+  }
+
+  async function handleGenerateStream() {
     setError("");
+    setStreamPreview("");
+    setStreamPhase("connecting");
+
+    const resume = resumes.find((r) => r.id === application.resume_id);
+    const parsed = resume?.parsed_text?.trim();
+    if (!application.resume_id || !parsed) {
+      setStreamPhase("error");
+      setError(
+        "This application needs a linked resume with parsed text. Edit the application or upload a resume."
+      );
+      return;
+    }
+
+    const abort = new AbortController();
+    streamAbortRef.current = abort;
+
+    try {
+      const draft = await streamGenerateEmail(
+        API_BASE_URL,
+        {
+          resume_text: parsed,
+          job_description: application.job_description,
+          company_name: application.company_name,
+          role: application.role,
+          recruiter_email: application.recruiter_email ?? "",
+          job_link: application.job_link ?? "",
+          tone,
+        },
+        {
+          onPhase: (p) => {
+            if (p === "connecting") {
+              setStreamPhase("connecting");
+            }
+            if (p === "streaming") {
+              setStreamPhase("streaming");
+            }
+          },
+          onDelta: (acc) => setStreamPreview(acc),
+          signal: abort.signal,
+        }
+      );
+
+      setStreamPhase("persisting");
+      const res = email
+        ? await api.regenerateEmail(application.id, tone, draft)
+        : await api.generateEmail(application.id, tone, draft);
+      onEmailUpdate(res.email);
+      setStreamPreview("");
+      setStreamPhase("idle");
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === "AbortError") {
+        setStreamPhase("idle");
+        setStreamPreview("");
+        return;
+      }
+      setStreamPhase("error");
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Streaming failed.");
+      }
+    } finally {
+      streamAbortRef.current = null;
+    }
+  }
+
+  async function handleGenerateFallback() {
+    setIsFallbackGenerating(true);
+    setError("");
+    setStreamPreview("");
+    setStreamPhase("idle");
     try {
       const res = email
-        ? await api.regenerateEmail(applicationId, tone)
-        : await api.generateEmail(applicationId, tone);
+        ? await api.regenerateEmail(application.id, tone)
+        : await api.generateEmail(application.id, tone);
       onEmailUpdate(res.email);
     } catch (err) {
       if (err instanceof ApiClientError) {
@@ -219,7 +344,7 @@ function EmailPanel({
         setError("Failed to generate email.");
       }
     } finally {
-      setIsGenerating(false);
+      setIsFallbackGenerating(false);
     }
   }
 
@@ -262,48 +387,132 @@ function EmailPanel({
         </div>
       )}
 
+      {(streamPhase !== "idle" || streamPreview) && (
+        <div
+          className="space-y-2 rounded-lg border bg-muted/30 p-3"
+          aria-live="polite"
+        >
+          <p className="text-xs text-muted-foreground">
+            {streamPhase === "connecting" && "Connecting to AI…"}
+            {streamPhase === "streaming" &&
+              "Streaming model output (live preview — JSON is parsed when complete)…"}
+            {streamPhase === "persisting" && "Saving draft to your application…"}
+            {streamPhase === "error" && "Streaming failed. Retry or use non-streaming generation."}
+          </p>
+          {(streamPhase === "streaming" ||
+            streamPhase === "error" ||
+            (streamPreview && streamPhase !== "persisting")) && (
+            <Textarea
+              readOnly
+              value={streamPreview}
+              className="min-h-28 font-mono text-xs"
+              aria-label="Streaming draft preview"
+            />
+          )}
+          {streamPhase === "persisting" && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Saving…
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tone selector + generate button */}
       {(!email || isEditable) && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <div className="grid flex-1 gap-1.5">
-            <Label htmlFor="tone" className="text-xs">
-              Tone
-            </Label>
-            <select
-              id="tone"
-              value={tone}
-              onChange={(e) => setTone(e.target.value as EmailTone)}
-              className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
-            >
-              {toneOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+            <div className="grid flex-1 gap-1.5">
+              <Label htmlFor="tone" className="text-xs">
+                Tone
+              </Label>
+              <select
+                id="tone"
+                value={tone}
+                onChange={(e) => setTone(e.target.value as EmailTone)}
+                disabled={isBusy || resumesLoading}
+                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-50 dark:bg-input/30"
+              >
+                {toneOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                onClick={handleGenerateStream}
+                disabled={isBusy || resumesLoading}
+                className="shrink-0"
+              >
+                {streamPhase === "connecting" || streamPhase === "streaming" ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    {streamPhase === "connecting" ? "Connecting…" : "Streaming…"}
+                  </>
+                ) : streamPhase === "persisting" ? (
+                  <>
+                    <Loader2 className="mr-2 size-4 animate-spin" />
+                    Saving…
+                  </>
+                ) : email ? (
+                  <>
+                    <RefreshCw className="mr-2 size-4" />
+                    Regenerate
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="mr-2 size-4" />
+                    Generate Email
+                  </>
+                )}
+              </Button>
+              {(streamPhase === "connecting" ||
+                streamPhase === "streaming") && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={cancelStream}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
           </div>
-          <Button
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="shrink-0"
-          >
-            {isGenerating ? (
-              <>
-                <Loader2 className="mr-2 size-4 animate-spin" />
-                Generating…
-              </>
-            ) : email ? (
-              <>
-                <RefreshCw className="mr-2 size-4" />
-                Regenerate
-              </>
-            ) : (
-              <>
-                <Sparkles className="mr-2 size-4" />
-                Generate Email
-              </>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateFallback}
+              disabled={isBusy || resumesLoading}
+            >
+              {isFallbackGenerating ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  Generating…
+                </>
+              ) : (
+                "Generate without streaming"
+              )}
+            </Button>
+            {streamPhase === "error" && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleGenerateStream}
+                disabled={isBusy || resumesLoading}
+              >
+                Retry streaming
+              </Button>
             )}
-          </Button>
+          </div>
+          {resumesLoading && (
+            <p className="text-xs text-muted-foreground">Loading resumes…</p>
+          )}
         </div>
       )}
 
@@ -390,20 +599,14 @@ function EmailPanel({
         </div>
       )}
 
-      {!email && !isGenerating && (
-        <p className="py-6 text-center text-sm text-muted-foreground">
-          Generate an email to get started with your outreach.
-        </p>
-      )}
-
-      {isGenerating && !email && (
-        <div className="flex flex-col items-center gap-2 py-8">
-          <Loader2 className="size-6 animate-spin text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            AI is crafting your email…
+      {!email &&
+        streamPhase === "idle" &&
+        !isFallbackGenerating &&
+        !streamPreview && (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            Generate an email to get started with your outreach.
           </p>
-        </div>
-      )}
+        )}
     </div>
   );
 }

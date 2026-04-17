@@ -15,6 +15,7 @@ export interface Email {
   status: EmailStatus;
   match_score: number | null;
   key_points: string[] | null;
+  reasoning?: string | null;
   scheduled_at: string | null;
   sent_at: string | null;
   retry_count: number;
@@ -26,8 +27,18 @@ export interface EmailResponse {
   email: Email;
 }
 
+/** Payload for POST /api/applications/:id/generate-email — optional draft skips LLM (after streaming). */
+export interface GeneratedEmailDraft {
+  subject: string;
+  body: string;
+  match_score: number;
+  key_points: string[];
+  reasoning: string;
+}
+
 export interface GenerateEmailRequest {
   tone: EmailTone;
+  draft?: GeneratedEmailDraft;
 }
 
 export interface UpdateEmailRequest {
